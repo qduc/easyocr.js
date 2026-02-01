@@ -45,12 +45,15 @@ export const recognize = async ({
   const linkTensor = ensureTensor(detectorOutputs[detector.linkOutputName]);
   const textMap = tensorToHeatmap(textTensor);
   const linkMap = tensorToHeatmap(linkTensor);
+  // Detector heatmaps are downsampled vs the input; scale based on heatmap size.
+  const scaleX = textMap.width / image.width;
+  const scaleY = textMap.height / image.height;
   const { horizontalList, freeList } = detectorPostprocess(
     textMap,
     linkMap,
     resolved,
-    detectorPrep.scaleX,
-    detectorPrep.scaleY,
+    scaleX,
+    scaleY,
   );
   const ordered = orderBoxes([...horizontalList, ...freeList], resolved);
   const crops = buildCrops(image, ordered, [], resolved);
@@ -80,6 +83,7 @@ export const recognize = async ({
       classes,
       recognizer.charset,
       recognizer.blankIndex ?? 0,
+      [],
     );
     results.push({ box: crop.box, text: decoded.text, confidence: decoded.confidence });
   }

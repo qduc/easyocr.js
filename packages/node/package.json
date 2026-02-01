@@ -10,9 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@easyocrjs/core": "*"
+    "@easyocrjs/core": "*",
+    "onnxruntime-node": "^1.20.0",
+    "sharp": "^0.34.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "vitest": "^1.0.0"
   },
   "license": "Apache-2.0"

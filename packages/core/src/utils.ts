@@ -37,13 +37,28 @@ export const resizeImage = (image: RasterImage, targetWidth: number, targetHeigh
   const xScale = width / targetWidth;
   const yScale = height / targetHeight;
   for (let y = 0; y < targetHeight; y += 1) {
-    const srcY = Math.min(height - 1, Math.floor(y * yScale));
+    const srcY = (y + 0.5) * yScale - 0.5;
+    const y0 = clamp(Math.floor(srcY), 0, height - 1);
+    const y1 = clamp(y0 + 1, 0, height - 1);
+    const wy = srcY - y0;
     for (let x = 0; x < targetWidth; x += 1) {
-      const srcX = Math.min(width - 1, Math.floor(x * xScale));
-      const srcIndex = (srcY * width + srcX) * channels;
+      const srcX = (x + 0.5) * xScale - 0.5;
+      const x0 = clamp(Math.floor(srcX), 0, width - 1);
+      const x1 = clamp(x0 + 1, 0, width - 1);
+      const wx = srcX - x0;
       const dstIndex = (y * targetWidth + x) * channels;
+      const idx00 = (y0 * width + x0) * channels;
+      const idx10 = (y0 * width + x1) * channels;
+      const idx01 = (y1 * width + x0) * channels;
+      const idx11 = (y1 * width + x1) * channels;
       for (let c = 0; c < channels; c += 1) {
-        resized[dstIndex + c] = data[srcIndex + c];
+        const v00 = data[idx00 + c];
+        const v10 = data[idx10 + c];
+        const v01 = data[idx01 + c];
+        const v11 = data[idx11 + c];
+        const top = v00 + (v10 - v00) * wx;
+        const bottom = v01 + (v11 - v01) * wx;
+        resized[dstIndex + c] = Math.round(top + (bottom - top) * wy);
       }
     }
   }
@@ -56,13 +71,131 @@ export const resizeImage = (image: RasterImage, targetWidth: number, targetHeigh
   };
 };
 
+const cubicWeight = (x: number): number => {
+  const ax = Math.abs(x);
+  if (ax <= 1) {
+    return (1.5 * ax - 2.5) * ax * ax + 1;
+  }
+  if (ax < 2) {
+    return ((-0.5 * ax + 2.5) * ax - 4) * ax + 2;
+  }
+  return 0;
+};
+
+export const resizeImageBicubic = (
+  image: RasterImage,
+  targetWidth: number,
+  targetHeight: number,
+): RasterImage => {
+  const { data, width, height, channels, channelOrder } = image;
+  if (targetWidth === width && targetHeight === height) {
+    return image;
+  }
+  const resized = new Uint8Array(targetWidth * targetHeight * channels);
+  const xScale = width / targetWidth;
+  const yScale = height / targetHeight;
+  for (let y = 0; y < targetHeight; y += 1) {
+    const srcY = (y + 0.5) * yScale - 0.5;
+    const yInt = Math.floor(srcY);
+    for (let x = 0; x < targetWidth; x += 1) {
+      const srcX = (x + 0.5) * xScale - 0.5;
+      const xInt = Math.floor(srcX);
+      const dstIndex = (y * targetWidth + x) * channels;
+      for (let c = 0; c < channels; c += 1) {
+        let accum = 0;
+        let weightSum = 0;
+        for (let m = -1; m <= 2; m += 1) {
+          const yy = clamp(yInt + m, 0, height - 1);
+          const wy = cubicWeight(srcY - (yInt + m));
+          for (let n = -1; n <= 2; n += 1) {
+            const xx = clamp(xInt + n, 0, width - 1);
+            const wx = cubicWeight(srcX - (xInt + n));
+            const w = wx * wy;
+            const srcIndex = (yy * width + xx) * channels + c;
+            accum += data[srcIndex] * w;
+            weightSum += w;
+          }
+        }
+        const value = weightSum === 0 ? 0 : accum / weightSum;
+        resized[dstIndex + c] = clamp(Math.round(value), 0, 255);
+      }
+    }
+  }
+  return {
+    data: resized,
+    width: targetWidth,
+    height: targetHeight,
+    channels,
+    channelOrder,
+  };
+};
+
+export const resizeGrayscaleBicubic = (
+  data: Float32Array,
+  width: number,
+  height: number,
+  targetWidth: number,
+  targetHeight: number,
+): Float32Array => {
+  if (targetWidth === width && targetHeight === height) {
+    return data;
+  }
+  const resized = new Float32Array(targetWidth * targetHeight);
+  const xScale = width / targetWidth;
+  const yScale = height / targetHeight;
+  for (let y = 0; y < targetHeight; y += 1) {
+    const srcY = (y + 0.5) * yScale - 0.5;
+    const yInt = Math.floor(srcY);
+    for (let x = 0; x < targetWidth; x += 1) {
+      const srcX = (x + 0.5) * xScale - 0.5;
+      const xInt = Math.floor(srcX);
+      let accum = 0;
+      let weightSum = 0;
+      for (let m = -1; m <= 2; m += 1) {
+        const yy = clamp(yInt + m, 0, height - 1);
+        const wy = cubicWeight(srcY - (yInt + m));
+        for (let n = -1; n <= 2; n += 1) {
+          const xx = clamp(xInt + n, 0, width - 1);
+          const wx = cubicWeight(srcX - (xInt + n));
+          const w = wx * wy;
+          accum += data[yy * width + xx] * w;
+          weightSum += w;
+        }
+      }
+      resized[y * targetWidth + x] = weightSum === 0 ? 0 : accum / weightSum;
+    }
+  }
+  return resized;
+};
+
 export const resizeLongSide = (image: RasterImage, maxSide: number, align: number): ResizeResult => {
   const { width, height } = image;
   const maxDim = Math.max(width, height);
   const scale = maxSide / maxDim;
-  const targetWidth = Math.max(align, Math.floor((width * scale + align - 1) / align) * align);
-  const targetHeight = Math.max(align, Math.floor((height * scale + align - 1) / align) * align);
-  return { image: resizeImage(image, targetWidth, targetHeight), scale };
+  const targetWidth = Math.max(1, Math.floor(width * scale));
+  const targetHeight = Math.max(1, Math.floor(height * scale));
+  const resized = resizeImage(image, targetWidth, targetHeight);
+  const paddedWidth = targetWidth % align === 0 ? targetWidth : targetWidth + (align - (targetWidth % align));
+  const paddedHeight = targetHeight % align === 0 ? targetHeight : targetHeight + (align - (targetHeight % align));
+  if (paddedWidth === targetWidth && paddedHeight === targetHeight) {
+    return { image: resized, scale };
+  }
+  const padded = new Uint8Array(paddedWidth * paddedHeight * image.channels);
+  for (let y = 0; y < targetHeight; y += 1) {
+    const srcOffset = y * targetWidth * image.channels;
+    const dstOffset = y * paddedWidth * image.channels;
+    padded.set(resized.data.subarray(srcOffset, srcOffset + targetWidth * image.channels), dstOffset);
+  }
+  return {
+    image: {
+      data: padded,
+      width: paddedWidth,
+      height: paddedHeight,
+      channels: image.channels,
+      channelOrder: image.channelOrder,
+    },
+    scale,
+  };
 };
 
 export const extractChannel = (image: RasterImage, channel: number): Float32Array => {
@@ -79,17 +212,21 @@ export const toFloatImage = (
   mean: [number, number, number],
   std: [number, number, number],
 ): FloatImage => {
-  const { data, width, height, channels } = image;
+  const { data, width, height, channels, channelOrder } = image;
   const outChannels = 3;
   const out = new Float32Array(width * height * outChannels);
   const invStd = [1 / std[0], 1 / std[1], 1 / std[2]];
+  const isBgr = channelOrder === 'bgr' || channelOrder === 'bgra';
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const srcIndex = (y * width + x) * channels;
       const dstIndex = (y * width + x) * outChannels;
-      const r = data[srcIndex] / 255;
-      const g = data[srcIndex + 1] / 255;
-      const b = data[srcIndex + 2] / 255;
+      const c0 = data[srcIndex] / 255;
+      const c1 = data[srcIndex + 1] / 255;
+      const c2 = data[srcIndex + 2] / 255;
+      const r = isBgr ? c2 : c0;
+      const g = c1;
+      const b = isBgr ? c0 : c2;
       out[dstIndex] = (r - mean[0]) * invStd[0];
       out[dstIndex + 1] = (g - mean[1]) * invStd[1];
       out[dstIndex + 2] = (b - mean[2]) * invStd[2];
@@ -140,12 +277,12 @@ export const rotateImage = (image: RasterImage, angleDeg: number): RasterImage =
 export const cropBox = (image: RasterImage, box: Box): RasterImage => {
   const xs = box.map((point) => point[0]);
   const ys = box.map((point) => point[1]);
-  const minX = clamp(Math.floor(Math.min(...xs)), 0, image.width - 1);
-  const maxX = clamp(Math.ceil(Math.max(...xs)), 0, image.width - 1);
-  const minY = clamp(Math.floor(Math.min(...ys)), 0, image.height - 1);
-  const maxY = clamp(Math.ceil(Math.max(...ys)), 0, image.height - 1);
-  const width = Math.max(1, maxX - minX + 1);
-  const height = Math.max(1, maxY - minY + 1);
+  const minX = clamp(Math.floor(Math.min(...xs)), 0, image.width);
+  const maxX = clamp(Math.ceil(Math.max(...xs)), 0, image.width);
+  const minY = clamp(Math.floor(Math.min(...ys)), 0, image.height);
+  const maxY = clamp(Math.ceil(Math.max(...ys)), 0, image.height);
+  const width = Math.max(1, maxX - minX);
+  const height = Math.max(1, maxY - minY);
   const out = new Uint8Array(width * height * image.channels);
   for (let y = 0; y < height; y += 1) {
     const srcY = minY + y;
@@ -264,10 +401,18 @@ export const padToWidth = (
     return data;
   }
   const out = new Float32Array(targetWidth * height * channels);
-  for (let y = 0; y < height; y += 1) {
-    const srcOffset = y * width * channels;
-    const dstOffset = y * targetWidth * channels;
-    out.set(data.subarray(srcOffset, srcOffset + width * channels), dstOffset);
+  for (let c = 0; c < channels; c += 1) {
+    const channelOffset = c * width * height;
+    const outChannelOffset = c * targetWidth * height;
+    for (let y = 0; y < height; y += 1) {
+      const rowOffset = channelOffset + y * width;
+      const outRowOffset = outChannelOffset + y * targetWidth;
+      out.set(data.subarray(rowOffset, rowOffset + width), outRowOffset);
+      const lastValue = data[rowOffset + width - 1] ?? 0;
+      for (let x = width; x < targetWidth; x += 1) {
+        out[outRowOffset + x] = lastValue;
+      }
+    }
   }
   return out;
 };

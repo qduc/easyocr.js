@@ -14,13 +14,13 @@
 
    * Precisely document: preprocessing, detector output format, cropping/deskew, recognizer inputs, decoding method (CTC/attention), and postprocessing/merging rules.
 
-4. **Convert models** (IN PROGRESS: 2026-02-01)
+4. **Convert models** (DONE: 2026-02-01)
 
    * Added `models/export_onnx.py` to export detector + recognizer to **ONNX** (uses local `.pth` weights).
    * Run `python models/export_onnx.py --validate` after installing Python deps to validate with ONNX Runtime.
    * If conversion breaks, either rewrite the offending ops or split the model into exportable parts.
 
-5. **Build the JS core pipeline**
+5. **Build the JS core pipeline** (DONE: 2026-02-01)
 
    * Implement: image normalization → detector inference → box/polygon postprocess → crop/warp → recognizer inference → decode → final results.
    * Keep model inference abstract so Node and Browser can share most logic.

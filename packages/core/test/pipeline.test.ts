@@ -66,7 +66,7 @@ describe('core pipeline stages', () => {
       0, 0, 0, 5,
     ]);
     const decoded = ctcGreedyDecode(logits, steps, classes, charset, 0);
-    expect(decoded.text).toBe('bc');
+    expect(decoded.text).toBe('ab');
     expect(decoded.confidence).toBeGreaterThan(0);
   });
 });

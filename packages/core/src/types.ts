@@ -78,14 +78,14 @@ export interface OcrOptions {
 
 export const DEFAULT_OCR_OPTIONS: OcrOptions = {
   canvasSize: 2560,
-  magRatio: 1.5,
+  magRatio: 1.0,
   align: 32,
-  mean: [0.5, 0.5, 0.5],
-  std: [0.5, 0.5, 0.5],
+  mean: [0.485, 0.456, 0.406],
+  std: [0.229, 0.224, 0.225],
   textThreshold: 0.7,
   lowText: 0.4,
   linkThreshold: 0.4,
-  minSize: 6,
+  minSize: 20,
   slopeThs: 0.1,
   ycenterThs: 0.5,
   heightThs: 0.5,

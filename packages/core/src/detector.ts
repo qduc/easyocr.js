@@ -84,18 +84,25 @@ export const detectorPostprocess = (
   if (textMap.width !== linkMap.width || textMap.height !== linkMap.height) {
     throw new Error('Detector output heatmaps must share the same shape.');
   }
-  const width = textMap.width;
-  const height = textMap.height;
+  const text = textMap;
+  const link = linkMap;
+  const width = text.width;
+  const height = text.height;
   const size = width * height;
+  const textScore = new Uint8Array(size);
+  const linkScore = new Uint8Array(size);
   const combined = new Uint8Array(size);
   for (let i = 0; i < size; i += 1) {
-    combined[i] =
-      textMap.data[i] > options.lowText || linkMap.data[i] > options.linkThreshold ? 1 : 0;
+    const isText = text.data[i] > options.lowText ? 1 : 0;
+    const isLink = link.data[i] > options.linkThreshold ? 1 : 0;
+    textScore[i] = isText;
+    linkScore[i] = isLink;
+    combined[i] = isText || isLink ? 1 : 0;
   }
+
   const visited = new Uint8Array(size);
-  const horizontalList: Box[] = [];
-  const freeList: Box[] = [];
   const queue = new Int32Array(size);
+  const boxes: Box[] = [];
 
   for (let i = 0; i < size; i += 1) {
     if (!combined[i] || visited[i]) continue;
@@ -107,16 +114,20 @@ export const detectorPostprocess = (
     let maxX = 0;
     let minY = height - 1;
     let maxY = 0;
-    let maxText = 0;
+    let maxText = -Infinity;
+    let area = 0;
+    const component: number[] = [];
     while (qHead < qTail) {
       const idx = queue[qHead++];
+      component.push(idx);
+      area += 1;
       const x = idx % width;
       const y = Math.floor(idx / width);
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
-      if (textMap.data[idx] > maxText) maxText = textMap.data[idx];
+      if (text.data[idx] > maxText) maxText = text.data[idx];
       const neighbors = [
         idx - 1,
         idx + 1,
@@ -129,23 +140,247 @@ export const detectorPostprocess = (
         queue[qTail++] = nIdx;
       }
     }
+    if (area < 10) continue;
     if (maxText < options.textThreshold) continue;
+
+    const segmap = new Uint8Array(size);
+    for (const idx of component) {
+      if (linkScore[idx] && !textScore[idx]) continue;
+      segmap[idx] = 1;
+    }
+
     const boxWidth = maxX - minX + 1;
     const boxHeight = maxY - minY + 1;
-    if (Math.min(boxWidth, boxHeight) < options.minSize) continue;
-    const margin = options.addMargin * Math.min(boxWidth, boxHeight);
-    const paddedMinX = clamp(Math.floor(minX - margin), 0, width - 1);
-    const paddedMaxX = clamp(Math.ceil(maxX + margin), 0, width - 1);
-    const paddedMinY = clamp(Math.floor(minY - margin), 0, height - 1);
-    const paddedMaxY = clamp(Math.ceil(maxY + margin), 0, height - 1);
-    const box = extractBoundingBox(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY, scaleX, scaleY);
-    if (boxWidth >= boxHeight) {
-      horizontalList.push(box);
+    const niter = Math.floor(
+      Math.sqrt((area * Math.min(boxWidth, boxHeight)) / (boxWidth * boxHeight)) * 2,
+    );
+    const sx = clamp(minX - niter, 0, width - 1);
+    const ex = clamp(maxX + niter + 1, 0, width);
+    const sy = clamp(minY - niter, 0, height - 1);
+    const ey = clamp(maxY + niter + 1, 0, height);
+
+    if (niter > 0) {
+      const dilated = segmap.slice();
+      for (let y = sy; y < ey; y += 1) {
+        for (let x = sx; x < ex; x += 1) {
+          if (!segmap[y * width + x]) continue;
+          for (let dy = -niter; dy <= niter; dy += 1) {
+            const yy = y + dy;
+            if (yy < sy || yy >= ey) continue;
+            for (let dx = -niter; dx <= niter; dx += 1) {
+              const xx = x + dx;
+              if (xx < sx || xx >= ex) continue;
+              dilated[yy * width + xx] = 1;
+            }
+          }
+        }
+      }
+      segmap.set(dilated);
+    }
+
+    const points: Point2D[] = [];
+    let segMinX = width - 1;
+    let segMaxX = 0;
+    let segMinY = height - 1;
+    let segMaxY = 0;
+    for (let y = sy; y < ey; y += 1) {
+      for (let x = sx; x < ex; x += 1) {
+        if (!segmap[y * width + x]) continue;
+        points.push([x, y]);
+        if (x < segMinX) segMinX = x;
+        if (x > segMaxX) segMaxX = x;
+        if (y < segMinY) segMinY = y;
+        if (y > segMaxY) segMaxY = y;
+      }
+    }
+    if (!points.length) continue;
+
+    let boxPoints = minAreaRect(points);
+    if (!boxPoints.length) continue;
+
+    const w = Math.hypot(boxPoints[0][0] - boxPoints[1][0], boxPoints[0][1] - boxPoints[1][1]);
+    const h = Math.hypot(boxPoints[1][0] - boxPoints[2][0], boxPoints[1][1] - boxPoints[2][1]);
+    const ratio = Math.max(w, h) / (Math.min(w, h) + 1e-5);
+    if (Math.abs(1 - ratio) <= 0.1) {
+      boxPoints = [
+        [segMinX, segMinY],
+        [segMaxX, segMinY],
+        [segMaxX, segMaxY],
+        [segMinX, segMaxY],
+      ];
+    }
+
+    const box: Box = [
+      [boxPoints[0][0] / scaleX, boxPoints[0][1] / scaleY],
+      [boxPoints[1][0] / scaleX, boxPoints[1][1] / scaleY],
+      [boxPoints[2][0] / scaleX, boxPoints[2][1] / scaleY],
+      [boxPoints[3][0] / scaleX, boxPoints[3][1] / scaleY],
+    ];
+    boxes.push(box);
+  }
+
+  return groupTextBoxes(boxes, options);
+};
+
+const groupTextBoxes = (boxes: Box[], options: OcrOptions): DetectorPostprocessResult => {
+  if (!boxes.length) {
+    return { horizontalList: [], freeList: [] };
+  }
+  const polys = boxes.map((box) => [
+    Math.trunc(box[0][0]), Math.trunc(box[0][1]),
+    Math.trunc(box[1][0]), Math.trunc(box[1][1]),
+    Math.trunc(box[2][0]), Math.trunc(box[2][1]),
+    Math.trunc(box[3][0]), Math.trunc(box[3][1]),
+  ]);
+
+  const horizontalList: Array<[number, number, number, number, number, number]> = [];
+  const freeList: Box[] = [];
+
+  for (const poly of polys) {
+    const slopeUp = (poly[3] - poly[1]) / Math.max(10, poly[2] - poly[0]);
+    const slopeDown = (poly[5] - poly[7]) / Math.max(10, poly[4] - poly[6]);
+    if (Math.max(Math.abs(slopeUp), Math.abs(slopeDown)) < options.slopeThs) {
+      const xMax = Math.max(poly[0], poly[2], poly[4], poly[6]);
+      const xMin = Math.min(poly[0], poly[2], poly[4], poly[6]);
+      const yMax = Math.max(poly[1], poly[3], poly[5], poly[7]);
+      const yMin = Math.min(poly[1], poly[3], poly[5], poly[7]);
+      horizontalList.push([xMin, xMax, yMin, yMax, 0.5 * (yMin + yMax), yMax - yMin]);
     } else {
-      freeList.push(box);
+      const height = Math.hypot(poly[6] - poly[0], poly[7] - poly[1]);
+      const width = Math.hypot(poly[2] - poly[0], poly[3] - poly[1]);
+      const margin = Math.trunc(1.44 * options.addMargin * Math.min(width, height));
+      const theta13 = Math.abs(Math.atan((poly[1] - poly[5]) / Math.max(10, poly[0] - poly[4])));
+      const theta24 = Math.abs(Math.atan((poly[3] - poly[7]) / Math.max(10, poly[2] - poly[6])));
+      const x1 = poly[0] - Math.cos(theta13) * margin;
+      const y1 = poly[1] - Math.sin(theta13) * margin;
+      const x2 = poly[2] + Math.cos(theta24) * margin;
+      const y2 = poly[3] - Math.sin(theta24) * margin;
+      const x3 = poly[4] + Math.cos(theta13) * margin;
+      const y3 = poly[5] + Math.sin(theta13) * margin;
+      const x4 = poly[6] - Math.cos(theta24) * margin;
+      const y4 = poly[7] + Math.sin(theta24) * margin;
+      freeList.push([
+        [x1, y1],
+        [x2, y2],
+        [x3, y3],
+        [x4, y4],
+      ]);
     }
   }
-  return { horizontalList, freeList };
+
+  horizontalList.sort((a, b) => a[4] - b[4]);
+
+  const combinedList: Array<Array<[number, number, number, number, number, number]>> = [];
+  let newBox: Array<[number, number, number, number, number, number]> = [];
+  let bHeight: number[] = [];
+  let bYcenter: number[] = [];
+
+  for (const poly of horizontalList) {
+    if (!newBox.length) {
+      bHeight = [poly[5]];
+      bYcenter = [poly[4]];
+      newBox = [poly];
+      continue;
+    }
+    const meanY = bYcenter.reduce((a, b) => a + b, 0) / bYcenter.length;
+    const meanH = bHeight.reduce((a, b) => a + b, 0) / bHeight.length;
+    if (Math.abs(meanY - poly[4]) < options.ycenterThs * meanH) {
+      bHeight.push(poly[5]);
+      bYcenter.push(poly[4]);
+      newBox.push(poly);
+    } else {
+      combinedList.push(newBox);
+      bHeight = [poly[5]];
+      bYcenter = [poly[4]];
+      newBox = [poly];
+    }
+  }
+  if (newBox.length) {
+    combinedList.push(newBox);
+  }
+
+  const mergedList: Array<[number, number, number, number]> = [];
+  for (const boxesInLine of combinedList) {
+    if (boxesInLine.length === 1) {
+      const box = boxesInLine[0];
+      const margin = Math.trunc(options.addMargin * Math.min(box[1] - box[0], box[5]));
+      mergedList.push([box[0] - margin, box[1] + margin, box[2] - margin, box[3] + margin]);
+      continue;
+    }
+    boxesInLine.sort((a, b) => a[0] - b[0]);
+    const mergedBox: Array<Array<[number, number, number, number, number, number]>> = [];
+    newBox = [];
+    bHeight = [];
+    let xMax = 0;
+    for (const box of boxesInLine) {
+      if (!newBox.length) {
+        bHeight = [box[5]];
+        xMax = box[1];
+        newBox = [box];
+        continue;
+      }
+      const meanH = bHeight.reduce((a, b) => a + b, 0) / bHeight.length;
+      if (Math.abs(meanH - box[5]) < options.heightThs * meanH && (box[0] - xMax) < options.widthThs * (box[3] - box[2])) {
+        bHeight.push(box[5]);
+        xMax = box[1];
+        newBox.push(box);
+      } else {
+        mergedBox.push(newBox);
+        bHeight = [box[5]];
+        xMax = box[1];
+        newBox = [box];
+      }
+    }
+    if (newBox.length) {
+      mergedBox.push(newBox);
+    }
+
+    for (const mbox of mergedBox) {
+      if (mbox.length !== 1) {
+        const xMin = Math.min(...mbox.map((b) => b[0]));
+        const xMax2 = Math.max(...mbox.map((b) => b[1]));
+        const yMin = Math.min(...mbox.map((b) => b[2]));
+        const yMax = Math.max(...mbox.map((b) => b[3]));
+        const boxWidth = xMax2 - xMin;
+        const boxHeight = yMax - yMin;
+        const margin = Math.trunc(options.addMargin * Math.min(boxWidth, boxHeight));
+        mergedList.push([xMin - margin, xMax2 + margin, yMin - margin, yMax + margin]);
+      } else {
+        const box = mbox[0];
+        const boxWidth = box[1] - box[0];
+        const boxHeight = box[3] - box[2];
+        const margin = Math.trunc(options.addMargin * Math.min(boxWidth, boxHeight));
+        mergedList.push([box[0] - margin, box[1] + margin, box[2] - margin, box[3] + margin]);
+      }
+    }
+  }
+
+  let horizontalBoxes: Box[] = mergedList.map((box) => [
+    [box[0], box[2]],
+    [box[1], box[2]],
+    [box[1], box[3]],
+    [box[0], box[3]],
+  ]);
+
+  if (options.minSize) {
+    horizontalBoxes = horizontalBoxes.filter((box) => {
+      const width = Math.abs(box[1][0] - box[0][0]);
+      const height = Math.abs(box[2][1] - box[1][1]);
+      return Math.max(width, height) > options.minSize;
+    });
+  }
+
+  let filteredFree = freeList;
+  if (options.minSize) {
+    filteredFree = freeList.filter((box) => {
+      const xs = box.map((point) => point[0]);
+      const ys = box.map((point) => point[1]);
+      const width = Math.max(...xs) - Math.min(...xs);
+      const height = Math.max(...ys) - Math.min(...ys);
+      return Math.max(width, height) > options.minSize;
+    });
+  }
+  return { horizontalList: horizontalBoxes, freeList: filteredFree };
 };
 
 interface LineGroup {
@@ -153,6 +388,104 @@ interface LineGroup {
   centerY: number;
   height: number;
 }
+
+type Point2D = [number, number];
+
+const cross = (o: Point2D, a: Point2D, b: Point2D): number =>
+  (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+
+const convexHull = (points: Point2D[]): Point2D[] => {
+  if (points.length <= 1) return points.slice();
+  const sorted = points.slice().sort((p1, p2) =>
+    p1[0] === p2[0] ? p1[1] - p2[1] : p1[0] - p2[0],
+  );
+  const lower: Point2D[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: Point2D[] = [];
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+};
+
+const rotatePoint = (point: Point2D, cos: number, sin: number): Point2D => [
+  point[0] * cos - point[1] * sin,
+  point[0] * sin + point[1] * cos,
+];
+
+const minAreaRect = (points: Point2D[]): Point2D[] => {
+  if (points.length === 0) return [];
+  if (points.length === 1) return [points[0], points[0], points[0], points[0]];
+  const hull = convexHull(points);
+  if (hull.length === 2) {
+    const [p0, p1] = hull;
+    return [p0, p1, p1, p0];
+  }
+
+  let bestArea = Infinity;
+  let best: { angle: number; minX: number; maxX: number; minY: number; maxY: number } | null = null;
+
+  for (let i = 0; i < hull.length; i += 1) {
+    const p0 = hull[i];
+    const p1 = hull[(i + 1) % hull.length];
+    const angle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const p of hull) {
+      const [rx, ry] = rotatePoint(p, cos, sin);
+      if (rx < minX) minX = rx;
+      if (rx > maxX) maxX = rx;
+      if (ry < minY) minY = ry;
+      if (ry > maxY) maxY = ry;
+    }
+    const area = (maxX - minX) * (maxY - minY);
+    if (area < bestArea) {
+      bestArea = area;
+      best = { angle, minX, maxX, minY, maxY };
+    }
+  }
+
+  if (!best) return [];
+  const cosA = Math.cos(best.angle);
+  const sinA = Math.sin(best.angle);
+  const rect = [
+    [best.minX, best.minY],
+    [best.maxX, best.minY],
+    [best.maxX, best.maxY],
+    [best.minX, best.maxY],
+  ] as Point2D[];
+  const box = rect.map((p) => rotatePoint(p, cosA, sinA)) as Point2D[];
+  let startIdx = 0;
+  let minSum = Infinity;
+  for (let i = 0; i < box.length; i += 1) {
+    const sum = box[i][0] + box[i][1];
+    if (sum < minSum) {
+      minSum = sum;
+      startIdx = i;
+    }
+  }
+  return [
+    box[startIdx],
+    box[(startIdx + 1) % 4],
+    box[(startIdx + 2) % 4],
+    box[(startIdx + 3) % 4],
+  ];
+};
 
 const boxMetrics = (box: Box) => {
   const xs = box.map((point) => point[0]);
