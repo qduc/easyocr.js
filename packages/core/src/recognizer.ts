@@ -72,9 +72,6 @@ export const recognizerPreprocess = (image: RasterImage, options: OcrOptions): R
     }
   }
 
-  if (channels === 1) {
-    paddingWidth = width;
-  }
   const padded = padToWidth(planar, width, height, channels, paddingWidth);
   const invStd = 1 / std;
   for (let i = 0; i < padded.length; i += 1) {

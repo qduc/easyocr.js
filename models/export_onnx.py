@@ -212,7 +212,7 @@ def main():
     parser.add_argument(
         '--detector-shape',
         type=parse_shape,
-        default='1,3,768,768',
+        default='1,3,2560,2560',
         help='Dummy input shape for detector export.',
     )
     parser.add_argument(

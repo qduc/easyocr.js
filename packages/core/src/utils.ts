@@ -175,27 +175,12 @@ export const resizeLongSide = (image: RasterImage, maxSide: number, align: numbe
   const targetWidth = Math.max(1, Math.floor(width * scale));
   const targetHeight = Math.max(1, Math.floor(height * scale));
   const resized = resizeImage(image, targetWidth, targetHeight);
-  const paddedWidth = targetWidth % align === 0 ? targetWidth : targetWidth + (align - (targetWidth % align));
-  const paddedHeight = targetHeight % align === 0 ? targetHeight : targetHeight + (align - (targetHeight % align));
-  if (paddedWidth === targetWidth && paddedHeight === targetHeight) {
-    return { image: resized, scale };
-  }
-  const padded = new Uint8Array(paddedWidth * paddedHeight * image.channels);
-  for (let y = 0; y < targetHeight; y += 1) {
-    const srcOffset = y * targetWidth * image.channels;
-    const dstOffset = y * paddedWidth * image.channels;
-    padded.set(resized.data.subarray(srcOffset, srcOffset + targetWidth * image.channels), dstOffset);
-  }
-  return {
-    image: {
-      data: padded,
-      width: paddedWidth,
-      height: paddedHeight,
-      channels: image.channels,
-      channelOrder: image.channelOrder,
-    },
-    scale,
-  };
+
+  // IMPORTANT: Python EasyOCR does NOT pad to alignment boundaries.
+  // The ONNX CRAFT model was exported with dynamic shapes and accepts any input size.
+  // Padding was causing incorrect detection results because the model sees different input dimensions.
+  // Simply return the resized image without padding to match Python's behavior.
+  return { image: resized, scale };
 };
 
 export const extractChannel = (image: RasterImage, channel: number): Float32Array => {

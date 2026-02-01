@@ -27,9 +27,16 @@ export const loadImage = async (
   const channelOrder = options.channelOrder ?? 'rgb';
   const image =
     typeof input === 'string'
-      ? sharp(input).toColourspace('srgb')
-      : sharp(Buffer.from(input instanceof Uint8Array ? input : new Uint8Array(input))).toColourspace('srgb');
-  const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+      ? sharp(input).toColourspace('srgb').removeAlpha().raw()
+      : sharp(Buffer.from(input instanceof Uint8Array ? input : new Uint8Array(input))).toColourspace('srgb').removeAlpha().raw();
+  const { data, info } = await image.toBuffer({ resolveWithObject: true });
+
+  // After removeAlpha() and toColourspace('srgb'), we should have 3 channels (RGB)
+  // But Sharp might return fewer channels for grayscale images
+  if (info.channels !== 3) {
+    throw new Error(`Expected 3 channels after RGB conversion, got ${info.channels}`);
+  }
+
   return {
     data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
     width: info.width,
