@@ -1,0 +1,17 @@
+{
+  "name": "@easyocrjs/cli",
+  "version": "0.0.1",
+  "description": "CLI for easyocr.js",
+  "bin": {
+    "easyocr": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@easyocrjs/node": "*",
+    "commander": "^11.0.0"
+  },
+  "license": "Apache-2.0"
+}

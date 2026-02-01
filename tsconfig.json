@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@easyocrjs/core": ["packages/core/src/index.ts"],
+      "@easyocrjs/node": ["packages/node/src/index.ts"],
+      "@easyocrjs/web": ["packages/web/src/index.ts"]
+    }
+  }
+}
