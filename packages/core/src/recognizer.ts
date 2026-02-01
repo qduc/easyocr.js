@@ -19,15 +19,12 @@ export const recognizerPreprocess = (image: RasterImage, options: OcrOptions): R
   const channels = options.recognizer.inputChannels;
   const mean = options.recognizer.mean;
   const std = options.recognizer.std;
-  const targetWidth = Math.min(
-    options.recognizer.inputWidth,
-    Math.max(1, Math.ceil(image.width * scale)),
-  );
+  const targetWidth = Math.max(1, Math.ceil(image.width * scale));
 
   let width = targetWidth;
   let height = targetHeight;
   let planar: Float32Array;
-  let paddingWidth = options.recognizer.inputWidth;
+
 
   if (channels === 1) {
     const isBgr = image.channelOrder === 'bgr' || image.channelOrder === 'bgra';
@@ -72,6 +69,8 @@ export const recognizerPreprocess = (image: RasterImage, options: OcrOptions): R
     }
   }
 
+  const paddingWidth = Math.ceil(Math.max(options.recognizer.inputWidth, targetWidth) / 4) * 4;
+
   const padded = padToWidth(planar, width, height, channels, paddingWidth, mean);
   const invStd = 1 / std;
   for (let i = 0; i < padded.length; i += 1) {
@@ -80,7 +79,7 @@ export const recognizerPreprocess = (image: RasterImage, options: OcrOptions): R
   return {
     input: {
       data: padded,
-      shape: [1, channels, height, options.recognizer.inputWidth],
+      shape: [1, channels, height, paddingWidth],
       type: 'float32',
     },
     scale,

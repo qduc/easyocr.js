@@ -1,0 +1,8 @@
+{
+  "track_id": "fix-recognition_20260202",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-02-02T10:00:00Z",
+  "updated_at": "2026-02-02T10:00:00Z",
+  "description": "The node-ocr still produce incorrect result compare to python reference. Debug and fix it"
+}

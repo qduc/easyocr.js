@@ -74,6 +74,38 @@ def patch_easyocr_for_onnx_export():
     easyocr_modules.BidirectionalLSTM.forward = forward_no_flatten
 
 
+def patch_easyocr_adaptive_pooling(model):
+    """
+    ONNX export of AdaptiveAvgPool2d with dynamic output sizes (like (None, 1))
+    is not well-supported when dynamic axes are enabled. Since EasyOCR uses
+    it to squash the height dimension (which is usually already 1), we
+    can replace it with a simple mean.
+    """
+    import torch.nn as nn
+
+    class OnnxFriendlyAdaptivePool(nn.Module):
+        def __init__(self, output_size):
+            super().__init__()
+            self.output_size = output_size
+
+        def forward(self, x):
+            # In EasyOCR, input is [batch, width, channels, height]
+            # and output_size is (None, 1), meaning we want height=1.
+            # This is equivalent to mean over the last dimension.
+            return x.mean(dim=-1, keepdim=True)
+
+    for name, module in model.named_modules():
+        if isinstance(module, nn.AdaptiveAvgPool2d):
+            if module.output_size == (None, 1):
+                # Get the parent module to replace the attribute
+                parts = name.split('.')
+                parent = model
+                for part in parts[:-1]:
+                    parent = getattr(parent, part)
+                setattr(parent, parts[-1], OnnxFriendlyAdaptivePool(module.output_size))
+                print(f"Patched {name} to be ONNX-friendly")
+
+
 def pick_module(reader, candidates: list[str]):
     for name in candidates:
         value = getattr(reader, name, None)
@@ -136,16 +168,26 @@ def export_model(
                 if output.dim() == 4:
                     dynamic_axes[output_name].update({2: 'height', 3: 'width'})
 
+    export_kwargs = {
+        "export_params": True,
+        "opset_version": opset,
+        "do_constant_folding": True,
+        "input_names": input_names,
+        "output_names": output_names,
+        "dynamic_axes": dynamic_axes,
+    }
+
+    # Try to disable dynamo if it's available as an argument (PyTorch 2.x)
+    import inspect
+    sig = inspect.signature(torch.onnx.export)
+    if 'dynamo' in sig.parameters:
+        export_kwargs['dynamo'] = False
+
     torch.onnx.export(
         model,
         tuple(inputs) if len(inputs) > 1 else inputs[0],
         str(output_path),
-        export_params=True,
-        opset_version=opset,
-        do_constant_folding=True,
-        input_names=input_names,
-        output_names=output_names,
-        dynamic_axes=dynamic_axes,
+        **export_kwargs
     )
 
     return torch_outputs
@@ -265,6 +307,7 @@ def main():
         recognizer = pick_module(reader, ['recognizer', 'recog_network', 'recognizer_model'])
         if recognizer is None:
             raise SystemExit('Failed to locate recognizer model on EasyOCR reader.')
+        patch_easyocr_adaptive_pooling(recognizer)
         recognizer_input = torch.randn(*args.recognizer_shape, dtype=torch.float32)
         recognizer_text = torch.zeros((args.recognizer_shape[0], 1), dtype=torch.long)
         recognizer_name = (args.recog_network or 'recognizer').replace('.pth', '')
@@ -276,8 +319,8 @@ def main():
             recognizer_path,
             args.opset,
             input_names=['input', 'text'],
-            dynamic_spatial=False,
-            use_dynamic_axes=False,
+            dynamic_spatial=True,
+            use_dynamic_axes=True,
         )
         print(f'Wrote recognizer ONNX to {recognizer_path}')
         if args.validate:
