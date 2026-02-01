@@ -97,7 +97,7 @@ export const detectorPostprocess = (
     const isLink = link.data[i] > options.linkThreshold ? 1 : 0;
     textScore[i] = isText;
     linkScore[i] = isLink;
-    combined[i] = isText || (options.paragraph && isLink) ? 1 : 0;
+    combined[i] = isText || isLink ? 1 : 0;
   }
 
   const visited = new Uint8Array(size);
@@ -128,14 +128,14 @@ export const detectorPostprocess = (
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
       if (text.data[idx] > maxText) maxText = text.data[idx];
-      const neighbors = [
-        idx - 1,
-        idx + 1,
-        idx - width,
-        idx + width,
-      ];
+      const neighbors = [];
+      if (x > 0) neighbors.push(idx - 1);
+      if (x < width - 1) neighbors.push(idx + 1);
+      if (y > 0) neighbors.push(idx - width);
+      if (y < height - 1) neighbors.push(idx + width);
+      
       for (const nIdx of neighbors) {
-        if (nIdx < 0 || nIdx >= size || visited[nIdx] || !combined[nIdx]) continue;
+        if (visited[nIdx] || !combined[nIdx]) continue;
         visited[nIdx] = 1;
         queue[qTail++] = nIdx;
       }
@@ -161,13 +161,14 @@ export const detectorPostprocess = (
 
     if (niter > 0) {
       const dilated = segmap.slice();
+      const radius = Math.floor(niter / 2);
       for (let y = sy; y < ey; y += 1) {
         for (let x = sx; x < ex; x += 1) {
           if (!segmap[y * width + x]) continue;
-          for (let dy = -niter; dy <= niter; dy += 1) {
+          for (let dy = -radius; dy <= radius; dy += 1) {
             const yy = y + dy;
             if (yy < sy || yy >= ey) continue;
-            for (let dx = -niter; dx <= niter; dx += 1) {
+            for (let dx = -radius; dx <= radius; dx += 1) {
               const xx = x + dx;
               if (xx < sx || xx >= ex) continue;
               dilated[yy * width + xx] = 1;
@@ -219,9 +220,6 @@ export const detectorPostprocess = (
     boxes.push(box);
   }
 
-  if (!options.paragraph) {
-    return groupTextBoxes(boxes, { ...options, widthThs: 0 });
-  }
   return groupTextBoxes(boxes, options);
 };
 
