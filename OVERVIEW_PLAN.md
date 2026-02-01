@@ -14,9 +14,10 @@
 
    * Precisely document: preprocessing, detector output format, cropping/deskew, recognizer inputs, decoding method (CTC/attention), and postprocessing/merging rules.
 
-4. **Convert models**
+4. **Convert models** (IN PROGRESS: 2026-02-01)
 
-   * Export detector + recognizer to **ONNX** (preferred) and validate with ONNX Runtime that outputs match Python reasonably.
+   * Added `models/export_onnx.py` to export detector + recognizer to **ONNX** (uses local `.pth` weights).
+   * Run `python models/export_onnx.py --validate` after installing Python deps to validate with ONNX Runtime.
    * If conversion breaks, either rewrite the offending ops or split the model into exportable parts.
 
 5. **Build the JS core pipeline**
