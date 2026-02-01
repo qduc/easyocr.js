@@ -32,6 +32,7 @@ def build_reader(models_dir: Path, lang: str, recog_network: str | None):
     easyocr = require_easyocr()
     base_kwargs = {
         'gpu': False,
+        'quantize': False,
         'model_storage_directory': str(models_dir),
         'download_enabled': False,
     }
@@ -39,7 +40,7 @@ def build_reader(models_dir: Path, lang: str, recog_network: str | None):
     if recog_network:
         attempts.append({**base_kwargs, 'recog_network': recog_network})
     attempts.append(base_kwargs)
-    attempts.append({'gpu': False})
+    attempts.append({'gpu': False, 'quantize': False})
 
     last_error = None
     for kwargs in attempts:
@@ -48,6 +49,29 @@ def build_reader(models_dir: Path, lang: str, recog_network: str | None):
         except TypeError as err:
             last_error = err
     raise SystemExit(f'Failed to initialize easyocr.Reader: {last_error}')
+
+
+def patch_easyocr_for_onnx_export():
+    """
+    EasyOCR's BidirectionalLSTM calls `flatten_parameters()` inside forward(). During
+    ONNX export (both dynamo and legacy), this can trigger ScriptObject-related
+    tracing/export failures. For export purposes, flattening is unnecessary, so we
+    patch the forward method to skip it.
+    """
+    try:
+        import easyocr.model.modules as easyocr_modules
+    except Exception:
+        return
+
+    if not hasattr(easyocr_modules, 'BidirectionalLSTM'):
+        return
+
+    def forward_no_flatten(self, input):  # noqa: ANN001
+        recurrent, _ = self.rnn(input)
+        output = self.linear(recurrent)
+        return output
+
+    easyocr_modules.BidirectionalLSTM.forward = forward_no_flatten
 
 
 def pick_module(reader, candidates: list[str]):
@@ -68,36 +92,58 @@ def normalize_outputs(outputs):
     raise RuntimeError('Unsupported model output type for ONNX export.')
 
 
+def normalize_inputs(inputs: torch.Tensor | tuple[torch.Tensor, ...] | list[torch.Tensor]):
+    if torch.is_tensor(inputs):
+        return [inputs]
+    if isinstance(inputs, (list, tuple)) and all(torch.is_tensor(value) for value in inputs):
+        return list(inputs)
+    raise RuntimeError('Unsupported model input type for ONNX export.')
+
+
 def export_model(
     name: str,
     model: torch.nn.Module,
-    dummy_input: torch.Tensor,
+    dummy_inputs: torch.Tensor | tuple[torch.Tensor, ...] | list[torch.Tensor],
     output_path: Path,
     opset: int,
+    *,
+    input_names: list[str] | None = None,
+    dynamic_spatial: bool = True,
+    use_dynamic_axes: bool = True,
 ):
     model.eval()
+    inputs = normalize_inputs(dummy_inputs)
+    if input_names is None:
+        input_names = ['input']
+    if len(input_names) != len(inputs):
+        raise ValueError(f'input_names length ({len(input_names)}) does not match inputs ({len(inputs)})')
+
     with torch.no_grad():
-        torch_outputs = normalize_outputs(model(dummy_input))
+        torch_outputs = normalize_outputs(model(*inputs))
 
     output_names = [f'{name}_output_{idx}' for idx in range(len(torch_outputs))]
-    dynamic_axes = {'input': {0: 'batch'}}
-    if dummy_input.dim() == 4:
-        dynamic_axes['input'].update({2: 'height', 3: 'width'})
+    dynamic_axes = None
+    if use_dynamic_axes:
+        dynamic_axes = {}
+        for input_name, tensor in zip(input_names, inputs):
+            dynamic_axes[input_name] = {0: 'batch'}
+            if dynamic_spatial and tensor.dim() == 4:
+                dynamic_axes[input_name].update({2: 'height', 3: 'width'})
 
-    for output_name, output in zip(output_names, torch_outputs):
-        if output.dim() >= 1:
-            dynamic_axes[output_name] = {0: 'batch'}
-            if output.dim() == 4:
-                dynamic_axes[output_name].update({2: 'height', 3: 'width'})
+        for output_name, output in zip(output_names, torch_outputs):
+            if output.dim() >= 1:
+                dynamic_axes[output_name] = {0: 'batch'}
+                if output.dim() == 4:
+                    dynamic_axes[output_name].update({2: 'height', 3: 'width'})
 
     torch.onnx.export(
         model,
-        dummy_input,
+        tuple(inputs) if len(inputs) > 1 else inputs[0],
         str(output_path),
         export_params=True,
         opset_version=opset,
         do_constant_folding=True,
-        input_names=['input'],
+        input_names=input_names,
         output_names=output_names,
         dynamic_axes=dynamic_axes,
     )
@@ -108,7 +154,7 @@ def export_model(
 def validate_onnx(
     name: str,
     onnx_path: Path,
-    dummy_input: torch.Tensor,
+    dummy_inputs: torch.Tensor | tuple[torch.Tensor, ...] | list[torch.Tensor],
     torch_outputs: list[torch.Tensor],
     atol: float,
     rtol: float,
@@ -120,7 +166,13 @@ def validate_onnx(
         return False
 
     session = ort.InferenceSession(str(onnx_path), providers=['CPUExecutionProvider'])
-    ort_outputs = session.run(None, {session.get_inputs()[0].name: dummy_input.cpu().numpy()})
+    inputs = normalize_inputs(dummy_inputs)
+    session_inputs = session.get_inputs()
+    if len(session_inputs) != len(inputs):
+        print(f'{name}: input count mismatch ({len(inputs)} vs {len(session_inputs)})')
+        return False
+    feeds = {session_input.name: tensor.cpu().numpy() for session_input, tensor in zip(session_inputs, inputs)}
+    ort_outputs = session.run(None, feeds)
 
     if len(ort_outputs) != len(torch_outputs):
         print(f'{name}: output count mismatch ({len(torch_outputs)} vs {len(ort_outputs)})')
@@ -150,7 +202,7 @@ def main():
         default=str(Path(__file__).resolve().parent / 'onnx'),
         help='Directory for exported ONNX files.',
     )
-    parser.add_argument('--opset', type=int, default=17, help='ONNX opset version.')
+    parser.add_argument('--opset', type=int, default=18, help='ONNX opset version.')
     parser.add_argument('--lang', default='en', help='Language for EasyOCR reader.')
     parser.add_argument(
         '--recog-network',
@@ -183,6 +235,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     reader = build_reader(models_dir, args.lang, args.recog_network)
+    patch_easyocr_for_onnx_export()
 
     if args.detector:
         detector = pick_module(reader, ['detector', 'detector_model', 'craft_model'])
@@ -213,21 +266,25 @@ def main():
         if recognizer is None:
             raise SystemExit('Failed to locate recognizer model on EasyOCR reader.')
         recognizer_input = torch.randn(*args.recognizer_shape, dtype=torch.float32)
+        recognizer_text = torch.zeros((args.recognizer_shape[0], 1), dtype=torch.long)
         recognizer_name = (args.recog_network or 'recognizer').replace('.pth', '')
         recognizer_path = output_dir / f'{recognizer_name}.onnx'
         recognizer_outputs = export_model(
             'recognizer',
             recognizer,
-            recognizer_input,
+            (recognizer_input, recognizer_text),
             recognizer_path,
             args.opset,
+            input_names=['input', 'text'],
+            dynamic_spatial=False,
+            use_dynamic_axes=False,
         )
         print(f'Wrote recognizer ONNX to {recognizer_path}')
         if args.validate:
             validate_onnx(
                 'recognizer',
                 recognizer_path,
-                recognizer_input,
+                (recognizer_input, recognizer_text),
                 recognizer_outputs,
                 args.atol,
                 args.rtol,
