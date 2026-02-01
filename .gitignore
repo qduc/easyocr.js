@@ -24,6 +24,7 @@ pnpm-debug.log*
 .venv/
 __pycache__/
 *.pyc
+python_reference/out/
 
 # Bun local/cache dirs (if you set BUN_INSTALL/CACHE locally)
 .bun/

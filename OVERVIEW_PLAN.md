@@ -1,11 +1,11 @@
 ### High-level plan to build a JS EasyOCR variant
 
-1. **Scope + repo**
+1. **Scope + repo** (DONE: 2026-02-01)
 
    * Decide targets: **Node**, **Browser**, or both. Answer: both.
    * Create a monorepo: `core` (shared pipeline), `node` runtime, `web` runtime, `cli`, `examples`, `benchmarks`.
 
-2. **Freeze a Python reference**
+2. **Freeze a Python reference (DONE: 2026-02-01)**
 
    * Stand up a tiny Python service (or scripts) running EasyOCR.
    * Collect a validation set of images + expected outputs (boxes + text) to compare against while porting.
