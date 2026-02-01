@@ -155,19 +155,23 @@ export const detectorPostprocess = (
       Math.sqrt((area * Math.min(boxWidth, boxHeight)) / (boxWidth * boxHeight)) * 2,
     );
     const sx = clamp(minX - niter, 0, width - 1);
-    const ex = clamp(maxX + niter + 1, 0, width);
+    const ex = clamp(maxX + niter + 2, 0, width);
     const sy = clamp(minY - niter, 0, height - 1);
-    const ey = clamp(maxY + niter + 1, 0, height);
+    const ey = clamp(maxY + niter + 2, 0, height);
 
     if (niter > 0) {
       const dilated = segmap.slice();
+      const kernelSize = niter + 1;
+      const anchor = Math.floor(kernelSize / 2);
+      const offsetStart = -anchor;
+      const offsetEnd = kernelSize - anchor - 1;
       for (let y = sy; y < ey; y += 1) {
         for (let x = sx; x < ex; x += 1) {
           if (!segmap[y * width + x]) continue;
-          for (let dy = -niter; dy <= niter; dy += 1) {
+          for (let dy = offsetStart; dy <= offsetEnd; dy += 1) {
             const yy = y + dy;
             if (yy < sy || yy >= ey) continue;
-            for (let dx = -niter; dx <= niter; dx += 1) {
+            for (let dx = offsetStart; dx <= offsetEnd; dx += 1) {
               const xx = x + dx;
               if (xx < sx || xx >= ex) continue;
               dilated[yy * width + xx] = 1;

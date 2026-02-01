@@ -354,12 +354,26 @@ export const warpPerspective = (image: RasterImage, box: Box, outputWidth: numbe
       const denom = transform[6] * x + transform[7] * y + transform[8];
       const srcX = (transform[0] * x + transform[1] * y + transform[2]) / denom;
       const srcY = (transform[3] * x + transform[4] * y + transform[5]) / denom;
-      const sx = clamp(Math.round(srcX), 0, image.width - 1);
-      const sy = clamp(Math.round(srcY), 0, image.height - 1);
-      const srcIndex = (sy * image.width + sx) * image.channels;
+      const x0 = clamp(Math.floor(srcX), 0, image.width - 1);
+      const x1 = clamp(x0 + 1, 0, image.width - 1);
+      const y0 = clamp(Math.floor(srcY), 0, image.height - 1);
+      const y1 = clamp(y0 + 1, 0, image.height - 1);
+      const wx = srcX - x0;
+      const wy = srcY - y0;
+      const idx00 = (y0 * image.width + x0) * image.channels;
+      const idx10 = (y0 * image.width + x1) * image.channels;
+      const idx01 = (y1 * image.width + x0) * image.channels;
+      const idx11 = (y1 * image.width + x1) * image.channels;
       const dstIndex = (y * outputWidth + x) * image.channels;
       for (let c = 0; c < image.channels; c += 1) {
-        out[dstIndex + c] = image.data[srcIndex + c];
+        const v00 = image.data[idx00 + c];
+        const v10 = image.data[idx10 + c];
+        const v01 = image.data[idx01 + c];
+        const v11 = image.data[idx11 + c];
+        const top = v00 + (v10 - v00) * wx;
+        const bottom = v01 + (v11 - v01) * wx;
+        const value = top + (bottom - top) * wy;
+        out[dstIndex + c] = clamp(Math.round(value), 0, 255);
       }
     }
   }

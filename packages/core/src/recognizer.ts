@@ -105,7 +105,7 @@ export const ctcGreedyDecode = (
     const mapped = index > blankIndex ? index - 1 : index;
     return charset[mapped] ?? '';
   };
-  const ignoreIdx = new Set([blankIndex, ...ignoreIndices]);
+  const ignoreIdx = new Set(ignoreIndices);
   const maxProbs: number[] = [];
   let text = '';
   let prevIndex = -1;
@@ -150,7 +150,7 @@ export const ctcGreedyDecode = (
     if (bestIndex !== blankIndex) {
       maxProbs.push(bestProb);
     }
-    if (!ignoreIdx.has(bestIndex) && bestIndex !== prevIndex) {
+    if (bestIndex !== blankIndex && !ignoreIdx.has(bestIndex) && bestIndex !== prevIndex) {
       text += indexToChar(bestIndex);
     }
     prevIndex = bestIndex;
