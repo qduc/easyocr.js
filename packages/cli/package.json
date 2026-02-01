@@ -2,6 +2,7 @@
   "name": "@easyocrjs/cli",
   "version": "0.0.1",
   "description": "CLI for easyocr.js",
+  "type": "module",
   "bin": {
     "easyocr": "dist/cli.js"
   },
