@@ -6,13 +6,15 @@ This repo is a small Bun-workspaces monorepo for a JavaScript/TypeScript port of
 
 - `packages/core/`: shared types and pipeline primitives (published as `@easyocrjs/core`)
 - `packages/node/`: Node.js runtime wrapper (published as `@easyocrjs/node`)
-- `packages/web/`: browser runtime wrapper (published as `@easyocrjs/web`)
+- `packages/web/`: browser runtime wrapper (published as `@easyocrjs/web`; currently mostly a re-export of core)
 - `packages/cli/`: CLI entrypoint (published as `@easyocrjs/cli`, binary: `easyocr`)
 - `examples/`: runnable sample usage
-- `benchmarks/`: performance experiments
-- `models/`: model assets (do not edit unless you are intentionally updating weights)
-- `dist/`: build output (prefer not to edit by hand; regenerate via build)
+- `benchmarks/`: performance experiments (optional; may not exist in every checkout)
+- `models/`: model assets + export scripts (do not edit weights unless you are intentionally updating them)
+- `python_reference/`: Python reference + utilities for exporting/validating model behavior
+- `packages/*/dist/`: per-package build output (generated; ignored by git)
 - `PIPELINE_CONTRACT.md`, `OVERVIEW_PLAN.md`: high-level architecture and pipeline notes
+- `DEBUG_README.md`, `DEBUGGING_CHECKLIST.md`, `HANDOFF_ONNX_DEBUGGING.md`: debugging notes and handoff docs
 
 ## Build, Test, and Development Commands
 
@@ -32,13 +34,19 @@ Target a single workspace when iterating:
 - Language: TypeScript, ESM (`"type": "module"`).
 - Formatting: follow existing code (2-space indent, semicolons, single quotes).
 - Naming: packages use `@easyocrjs/*`; tests use `*.test.ts`.
-- Avoid committing generated artifacts unless the repo explicitly expects them (prefer source-only changes + rebuild).
+- Avoid committing generated artifacts unless the repo explicitly expects them (prefer source-only changes + rebuild), especially `packages/*/dist/` and `models/onnx/`.
 
 ## Testing Guidelines
 
 - Framework: Vitest (see `vitest.config.ts`).
 - Test locations: `packages/*/test/*.test.ts`.
+- Note: `packages/cli` currently has no real tests (its `test` script is a placeholder).
 - Add/adjust tests with behavior changes; there is no enforced coverage threshold in this repo today.
+
+## Model Export (Python)
+
+- PyTorch weights live under `models/` and ONNX exports go to `models/onnx/` (generated).
+- Export + validate with `python models/export_onnx.py --detector --recognizer --validate` (see `models/README.md`).
 
 ## Commit & Pull Request Guidelines
 

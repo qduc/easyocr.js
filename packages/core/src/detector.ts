@@ -97,7 +97,7 @@ export const detectorPostprocess = (
     const isLink = link.data[i] > options.linkThreshold ? 1 : 0;
     textScore[i] = isText;
     linkScore[i] = isLink;
-    combined[i] = isText || isLink ? 1 : 0;
+    combined[i] = isText || (options.paragraph && isLink) ? 1 : 0;
   }
 
   const visited = new Uint8Array(size);
@@ -219,6 +219,9 @@ export const detectorPostprocess = (
     boxes.push(box);
   }
 
+  if (!options.paragraph) {
+    return groupTextBoxes(boxes, { ...options, widthThs: 0 });
+  }
   return groupTextBoxes(boxes, options);
 };
 

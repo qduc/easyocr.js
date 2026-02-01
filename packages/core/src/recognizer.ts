@@ -72,7 +72,7 @@ export const recognizerPreprocess = (image: RasterImage, options: OcrOptions): R
     }
   }
 
-  const padded = padToWidth(planar, width, height, channels, paddingWidth);
+  const padded = padToWidth(planar, width, height, channels, paddingWidth, mean);
   const invStd = 1 / std;
   for (let i = 0; i < padded.length; i += 1) {
     padded[i] = (padded[i] - mean) * invStd;
@@ -111,46 +111,26 @@ export const ctcGreedyDecode = (
   let prevIndex = -1;
   for (let t = 0; t < steps; t += 1) {
     let maxLogit = -Infinity;
+    let bestIndex = 0;
     for (let c = 0; c < classes; c += 1) {
       const score = logits[t * classes + c];
       if (score > maxLogit) {
         maxLogit = score;
-      }
-    }
-    let sum = 0;
-    const probs = new Float32Array(classes);
-    for (let c = 0; c < classes; c += 1) {
-      const prob = Math.exp(logits[t * classes + c] - maxLogit);
-      probs[c] = prob;
-      sum += prob;
-    }
-    let norm = 0;
-    for (let c = 0; c < classes; c += 1) {
-      let prob = sum > 0 ? probs[c] / sum : 0;
-      if (ignoreIdx.has(c)) {
-        prob = 0;
-      }
-      probs[c] = prob;
-      norm += prob;
-    }
-    if (norm > 0) {
-      for (let c = 0; c < classes; c += 1) {
-        probs[c] /= norm;
-      }
-    }
-    let bestIndex = 0;
-    let bestProb = 0;
-    for (let c = 0; c < classes; c += 1) {
-      const prob = probs[c];
-      if (prob > bestProb) {
-        bestProb = prob;
         bestIndex = c;
       }
     }
-    if (bestIndex !== blankIndex) {
-      maxProbs.push(bestProb);
+
+    // Calculate confidence for this step
+    let sum = 0;
+    for (let c = 0; c < classes; c += 1) {
+      sum += Math.exp(logits[t * classes + c] - maxLogit);
     }
-    if (!ignoreIdx.has(bestIndex) && bestIndex !== prevIndex) {
+    const prob = 1 / sum; // probability of the bestIndex
+    if (bestIndex !== blankIndex) {
+      maxProbs.push(prob);
+    }
+
+    if (bestIndex !== blankIndex && bestIndex !== prevIndex && !new Set(ignoreIndices).has(bestIndex)) {
       text += indexToChar(bestIndex);
     }
     prevIndex = bestIndex;
@@ -164,8 +144,7 @@ export const ctcGreedyDecode = (
       const p = Math.max(maxProbs[i], 1e-8);
       logSum += Math.log(p);
     }
-    const power = 2 / Math.sqrt(maxProbs.length);
-    confidence = Math.exp(logSum * power);
+    confidence = Math.exp(logSum / maxProbs.length);
   }
   return { text, confidence };
 };

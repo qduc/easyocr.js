@@ -381,6 +381,7 @@ export const padToWidth = (
   height: number,
   channels: number,
   targetWidth: number,
+  fillValue = 0,
 ): Float32Array => {
   if (width >= targetWidth) {
     return data;
@@ -393,9 +394,8 @@ export const padToWidth = (
       const rowOffset = channelOffset + y * width;
       const outRowOffset = outChannelOffset + y * targetWidth;
       out.set(data.subarray(rowOffset, rowOffset + width), outRowOffset);
-      const lastValue = data[rowOffset + width - 1] ?? 0;
       for (let x = width; x < targetWidth; x += 1) {
-        out[outRowOffset + x] = lastValue;
+        out[outRowOffset + x] = fillValue;
       }
     }
   }
