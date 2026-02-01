@@ -3,6 +3,7 @@ import json
 import os
 import platform
 import sys
+import inspect
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -97,6 +98,10 @@ def main(argv: list[str]) -> int:
         'python': sys.version.split()[0],
         'platform': platform.platform(),
         'easyocrVersion': getattr(easyocr, '__version__', None),
+        'easyocrFile': getattr(easyocr, '__file__', None),
+        'readerInitSignature': str(inspect.signature(easyocr.Reader.__init__)),
+        'readtextSignature': str(inspect.signature(reader.readtext)),
+        'readtextArgs': 'defaults',
         'langs': args.lang,
         'gpu': bool(args.gpu),
         'inputs': [str(p) for p in input_paths],

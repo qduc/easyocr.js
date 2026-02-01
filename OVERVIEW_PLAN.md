@@ -10,7 +10,7 @@
    * Stand up a tiny Python service (or scripts) running EasyOCR.
    * Collect a validation set of images + expected outputs (boxes + text) to compare against while porting.
 
-3. **Extract the pipeline contract**
+3. **Extract the pipeline contract** (DONE: 2026-02-01)
 
    * Precisely document: preprocessing, detector output format, cropping/deskew, recognizer inputs, decoding method (CTC/attention), and postprocessing/merging rules.
 
