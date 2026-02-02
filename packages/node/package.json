@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node.js runtime for easyocr.js",
   "type": "module",
   "main": "dist/index.js",
@@ -17,7 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@qduc/easyocr-core": "^0.1.0",
+    "@qduc/easyocr-core": "^0.1.1",
     "onnxruntime-node": "^1.20.0",
     "sharp": "^0.34.0"
   },
