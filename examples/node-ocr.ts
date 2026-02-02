@@ -52,8 +52,6 @@ const ensureFile = async (path: string, label: string) => {
 
 const main = async () => {
   await ensureFile(imagePath, 'Image');
-  await ensureFile(detectorPath, 'Detector ONNX');
-  await ensureFile(recognizerPath, 'Recognizer ONNX');
   await ensureFile(charsetPath, 'Charset file');
 
   const charset = (await readFile(charsetPath, 'utf8')).trimEnd();

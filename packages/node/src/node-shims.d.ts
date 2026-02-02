@@ -18,8 +18,13 @@ declare module 'node:crypto' {
 }
 
 declare module 'node:path' {
+  export const join: (...parts: string[]) => string;
+  export const basename: (p: string, ext?: string) => string;
+  export const dirname: (p: string) => string;
   const path: {
     join: (...parts: string[]) => string;
+    basename: (p: string, ext?: string) => string;
+    dirname: (p: string) => string;
     posix: { join: (...parts: string[]) => string };
   };
   export default path;

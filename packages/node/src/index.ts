@@ -9,9 +9,40 @@ import type {
   Tensor,
   TensorType,
 } from '@easyocrjs/core';
-import { readFile } from 'node:fs/promises';
+import { access, mkdir, writeFile, readFile } from 'node:fs/promises';
+import * as nodePath from 'node:path';
 import sharp from 'sharp';
 import * as ort from 'onnxruntime-node';
+
+const MODELS_BASE_URL = 'https://github.com/qduc/easyocr.js/releases/download/v0.0.1-alpha';
+
+async function ensureModel(modelPath: string): Promise<void> {
+  try {
+    await access(modelPath);
+  } catch {
+    const filename = nodePath.basename(modelPath);
+    // Only attempt to download if it looks like an ONNX model we know about
+    if (!filename.endsWith('.onnx')) {
+      return;
+    }
+
+    const url = `${MODELS_BASE_URL}/${filename}`;
+    console.log(`Model not found at ${modelPath}. Downloading from ${url}...`);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download model from ${url}: ${response.status} ${response.statusText}. ` +
+        `Please ensure the model exists or run the export script manually.`,
+      );
+    }
+
+    const buffer = await response.arrayBuffer();
+    await mkdir(nodePath.dirname(modelPath), { recursive: true });
+    await writeFile(modelPath, new Uint8Array(buffer));
+    console.log(`Model successfully downloaded to ${modelPath}`);
+  }
+}
 
 export type NodeImageInput = string | Buffer | Uint8Array;
 
@@ -234,6 +265,7 @@ export const loadSession = async (
   options: LoadSessionOptions = {},
 ): Promise<ort.InferenceSession> => {
   if (typeof model === 'string') {
+    await ensureModel(model);
     return ort.InferenceSession.create(model, options.sessionOptions);
   }
   const data = model instanceof Uint8Array ? model : new Uint8Array(model);
