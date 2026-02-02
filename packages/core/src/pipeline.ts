@@ -14,6 +14,7 @@ import { resolveOcrOptions } from './types.js';
 import type { TraceWriter } from './trace.js';
 import { traceStep } from './trace.js';
 import { toFloatImage } from './utils.js';
+import { LANGUAGE_CHARS } from './languages.js';
 
 export interface RecognizeInput {
   image: RasterImage;
@@ -35,6 +36,62 @@ const ensureTensor = (tensor?: Tensor): Tensor => {
     throw new Error('Missing tensor output from model.');
   }
   return tensor;
+};
+
+const buildIgnoreIndices = (recognizer: RecognizerModel, options: OcrOptions): number[] => {
+  const blankIndex = recognizer.blankIndex ?? 0;
+  const ignoreIndices: number[] = [];
+
+  const getOutputIndex = (charsetIndex: number) => {
+    if (blankIndex === 0) return charsetIndex + 1;
+    return charsetIndex >= blankIndex ? charsetIndex + 1 : charsetIndex;
+  };
+
+  if (options.allowlist) {
+    const allowSet = new Set(options.allowlist);
+    for (let i = 0; i < recognizer.charset.length; i++) {
+      if (!allowSet.has(recognizer.charset[i])) {
+        ignoreIndices.push(getOutputIndex(i));
+      }
+    }
+    return ignoreIndices;
+  }
+
+  if (options.blocklist) {
+    const blockSet = new Set(options.blocklist);
+    for (let i = 0; i < recognizer.charset.length; i++) {
+      if (blockSet.has(recognizer.charset[i])) {
+        ignoreIndices.push(getOutputIndex(i));
+      }
+    }
+    return ignoreIndices;
+  }
+
+  if (options.langList && options.langList.length > 0) {
+    const allowedChars = new Set<string>();
+    for (const lang of options.langList) {
+      const chars = LANGUAGE_CHARS[lang];
+      if (chars) {
+        for (const char of chars) {
+          allowedChars.add(char);
+        }
+      }
+    }
+    // Default symbols from Python EasyOCR
+    const symbols = recognizer.symbols ?? '0123456789!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ';
+    for (const char of symbols) {
+      allowedChars.add(char);
+    }
+
+    for (let i = 0; i < recognizer.charset.length; i++) {
+      if (!allowedChars.has(recognizer.charset[i])) {
+        ignoreIndices.push(getOutputIndex(i));
+      }
+    }
+    return ignoreIndices;
+  }
+
+  return [];
 };
 
 export const recognize = async ({
@@ -185,6 +242,7 @@ export const recognize = async ({
   const recognitionSource = recognitionImage ?? image;
   const crops = buildCrops(recognitionSource, horizontalList, freeList, resolved);
   const results: RecognitionCrop[] = [];
+  const ignoreIndices = buildIgnoreIndices(recognizer, resolved);
 
   for (const crop of crops) {
     const prep = recognizerPreprocess(crop.image, resolved);
@@ -210,7 +268,7 @@ export const recognize = async ({
       classes,
       recognizer.charset,
       recognizer.blankIndex ?? 0,
-      [],
+      ignoreIndices,
     );
     results.push({ box: crop.box, text: decoded.text, confidence: decoded.confidence });
   }

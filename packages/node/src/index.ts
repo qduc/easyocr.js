@@ -275,6 +275,7 @@ export interface RecognizerModelOptions extends LoadSessionOptions {
   outputName?: string;
   textInputName?: string;
   charset: string;
+  symbols?: string;
   blankIndex?: number;
 }
 
@@ -297,6 +298,7 @@ export const loadRecognizerModel = async (
     outputName,
     textInputName: options.textInputName,
     charset: options.charset,
+    symbols: options.symbols,
     blankIndex: options.blankIndex,
   };
 };

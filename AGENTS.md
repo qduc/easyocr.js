@@ -12,6 +12,7 @@ This repo is a small Bun-workspaces monorepo for a JavaScript/TypeScript port of
 - `benchmarks/`: performance experiments (optional; may not exist in every checkout)
 - `models/`: model assets + export scripts (do not edit weights unless you are intentionally updating them)
 - `python_reference/`: Python reference + utilities for exporting/validating model behavior
+- `python_reference/EasyOCR/`: original EasyOCR code for reference (copied from EasyOCR repo; do not edit here)
 - `packages/*/dist/`: per-package build output (generated; ignored by git)
 - `PIPELINE_CONTRACT.md`, `OVERVIEW_PLAN.md`: high-level architecture and pipeline notes
 - `DEBUG_README.md`, `DEBUGGING_CHECKLIST.md`, `HANDOFF_ONNX_DEBUGGING.md`: debugging notes and handoff docs
@@ -28,6 +29,12 @@ Target a single workspace when iterating:
 
 - `bun run -F @easyocrjs/node test`
 - `bun run -F @easyocrjs/web build`
+
+For python environment, we use uv, create an venv in project root:
+
+- `uv venv`: create virtual environment
+- `uv pip install`: install python dependencies
+- `uv run <script>`: run python script in venv
 
 ## Coding Style & Naming Conventions
 

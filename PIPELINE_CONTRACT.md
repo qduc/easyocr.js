@@ -148,6 +148,13 @@ Interpretation:
 
 ### 8) Decoding
 
+**Required behavior**
+- support character filtering via `langList`, `allowlist`, or `blocklist`.
+- `langList` combines character sets from `packages/core/resources/character/*_char.txt`.
+- default behavior: no filtering (`langList = undefined`).
+
+### 9) Decoder implementation
+
 Decoder must match the Python reference:
 
 - `greedy`
@@ -198,3 +205,4 @@ captured somewhere stable (tests or JSON):
 7) Crop/rectify: `free_list` warp, `rotation_info` (if used).
 8) Recognition extras: `contrast_ths`, `adjust_contrast` behavior (if used).
 9) Decoder: `greedy`/`beamsearch`/`wordbeamsearch` + confidence definition.
+10) Language params: `langList`, `allowlist`, `blocklist`.

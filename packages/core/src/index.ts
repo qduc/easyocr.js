@@ -6,3 +6,4 @@ export * from './crop.js';
 export * from './recognizer.js';
 export * from './pipeline.js';
 export * from './trace.js';
+export * from './languages.js';

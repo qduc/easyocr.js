@@ -69,4 +69,21 @@ describe('core pipeline stages', () => {
     expect(decoded.text).toBe('ab');
     expect(decoded.confidence).toBeGreaterThan(0);
   });
+
+  it('decodes CTC logits with ignoreIndices', () => {
+    const charset = 'abc'; // blankIndex is 0, so 1='a', 2='b', 3='c'
+    const steps = 3;
+    const classes = 4;
+    const logits = new Float32Array([
+      0, 5, 0, 0, // 'a' (1)
+      0, 0, 5, 0, // 'b' (2)
+      0, 0, 5, 0  // 'b' (2)
+    ]);
+    // Ignore 'b' (index 2)
+    const decoded = ctcGreedyDecode(logits, steps, classes, charset, 0, [2]);
+    // If 'b' is ignored, the next best in the second step might be index 0 or 1 or 3.
+    // In our logits, 0 is the max after ignoring 2.
+    // So it should be 'a' + '' + '' -> 'a'
+    expect(decoded.text).toBe('a');
+  });
 });

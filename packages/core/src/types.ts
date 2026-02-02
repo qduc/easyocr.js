@@ -42,6 +42,7 @@ export interface RecognizerModel {
   outputName: string;
   textInputName?: string;
   charset: string;
+  symbols?: string;
   blankIndex?: number;
 }
 
@@ -66,6 +67,9 @@ export interface OcrOptions {
   rotationInfo: number[];
   contrastThs: number;
   adjustContrast: number;
+  langList?: string[];
+  allowlist?: string;
+  blocklist?: string;
   decoder: 'greedy';
   recognizer: {
     inputHeight: number;
@@ -97,6 +101,7 @@ export const DEFAULT_OCR_OPTIONS: OcrOptions = {
   rotationInfo: [],
   contrastThs: 0.1,
   adjustContrast: 0.5,
+  langList: undefined,
   decoder: 'greedy',
   recognizer: {
     inputHeight: 64,
