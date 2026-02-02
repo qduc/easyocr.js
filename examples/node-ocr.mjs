@@ -6,6 +6,7 @@ const repoRoot = new URL('..', import.meta.url);
 const argv = process.argv.slice(2);
 let imageArg = null;
 let traceDir = null;
+let langs = [];
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
   if (arg === '--trace-dir') {
@@ -13,9 +14,18 @@ for (let i = 0; i < argv.length; i += 1) {
     i += 1;
     continue;
   }
+  if (arg === '--langs' || arg === '--lang') {
+    const value = argv[i + 1] ?? '';
+    langs = value.split(',').map((lang) => lang.trim()).filter(Boolean);
+    i += 1;
+    continue;
+  }
   if (!arg.startsWith('-') && imageArg === null) {
     imageArg = arg;
   }
+}
+if (langs.length === 0) {
+  langs = ['en'];
 }
 
 const imagePath = imageArg
@@ -23,8 +33,9 @@ const imagePath = imageArg
   : fileURLToPath(new URL('./Screenshot_20260201_193653.png', import.meta.url));
 
 const detectorPath = fileURLToPath(new URL('./models/onnx/craft_mlt_25k.onnx', repoRoot));
-const recognizerPath = fileURLToPath(new URL('./models/onnx/english_g2.onnx', repoRoot));
-const charsetPath = fileURLToPath(new URL('./models/english_g2.charset.txt', repoRoot));
+const recognizerModel = easyocr.guessModel(langs);
+const recognizerPath = fileURLToPath(new URL(`./models/onnx/${recognizerModel}.onnx`, repoRoot));
+const charsetPath = fileURLToPath(new URL(`./models/${recognizerModel}.charset.txt`, repoRoot));
 
 const ensureFile = async (path, label) => {
   try {
@@ -62,13 +73,23 @@ const main = async () => {
             imagePath,
             detectorPath,
             recognizerPath,
+            langs,
           },
         })
       : undefined;
   if (traceDir && !trace) {
     console.warn('Tracing requested but createFsTraceWriter is not available (run `bun run build` first).');
   }
-  const results = await easyocr.recognize({ image, recognitionImage, detector, recognizer, trace });
+  const results = await easyocr.recognize({
+    image,
+    recognitionImage,
+    detector,
+    recognizer,
+    trace,
+    options: {
+      langList: langs,
+    },
+  });
   console.log(JSON.stringify(results, null, 2));
 };
 
