@@ -6,6 +6,30 @@ import { spawnSync } from 'child_process';
 const PACKAGES = ['core', 'node', 'web'];
 const ROOT_DIR = process.cwd();
 
+function updateCoreVersionSource(newVersion: string) {
+  const indexPath = join(ROOT_DIR, 'packages/core/src/index.ts');
+  const src = readFileSync(indexPath, 'utf-8');
+  const next = src.replace(
+    /export const version = '([^']*)';/,
+    `export const version = '${newVersion}';`,
+  );
+  if (next === src) {
+    console.warn(`⚠️ Could not update core version in ${indexPath} (pattern not found).`);
+    return;
+  }
+  writeFileSync(indexPath, next);
+}
+
+function generateModelsManifest() {
+  const result = spawnSync('node', ['scripts/generate_models_manifest.mjs'], {
+    cwd: ROOT_DIR,
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) {
+    throw new Error(`models manifest generation failed (exit ${result.status})`);
+  }
+}
+
 async function release() {
   const args = process.argv.slice(2);
   const isDryRun = args.includes('--dry-run');
@@ -99,6 +123,18 @@ async function release() {
       if (!isSameVersion) {
           console.log(`   ✅ Updated @qduc/easyocr-${pkgName}`);
       }
+  }
+
+  // Keep source exports + model availability tied to the published version.
+  if (!isSameVersion) {
+    console.log('🧾 Regenerating models manifest + syncing core version export...');
+    updateCoreVersionSource(newVersion);
+    generateModelsManifest();
+    updatedFiles.push(
+      join(ROOT_DIR, 'packages/core/src/index.ts'),
+      join(ROOT_DIR, 'models/manifest.json'),
+      join(ROOT_DIR, 'packages/core/models/manifest.json'),
+    );
   }
 
   if (isDryRun) {

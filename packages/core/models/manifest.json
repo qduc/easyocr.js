@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "package": "@qduc/easyocr-core",
+  "packageVersion": "0.1.0",
+  "generatedAt": "2026-02-02T17:14:12.065Z",
+  "models": [
+    {
+      "modelName": "craft_mlt_25k",
+      "kind": "detector",
+      "languages": [
+        "*"
+      ],
+      "onnxFile": "onnx/craft_mlt_25k.onnx",
+      "size": 83058556,
+      "sha256": "0e4f3534781cfe9d00cc1fcaee41166a4f6343c5befd49c29613afc50e1a0411"
+    },
+    {
+      "modelName": "english_g2",
+      "kind": "recognizer",
+      "languages": [
+        "en"
+      ],
+      "charsetFile": "english_g2.charset.txt",
+      "onnxFile": "onnx/english_g2.onnx",
+      "textInputName": "text",
+      "size": 15136918,
+      "sha256": "494697d42d9f3990fe7264d89b259ac0e358746a7d27e41b16adfe3aa17cbbab"
+    },
+    {
+      "modelName": "latin_g2",
+      "kind": "recognizer",
+      "languages": [
+        "af",
+        "az",
+        "bs",
+        "cs",
+        "cy",
+        "da",
+        "de",
+        "es",
+        "et",
+        "fr",
+        "ga",
+        "hr",
+        "hu",
+        "id",
+        "is",
+        "it",
+        "ku",
+        "la",
+        "lt",
+        "lv",
+        "mi",
+        "ms",
+        "mt",
+        "nl",
+        "no",
+        "oc",
+        "pi",
+        "pl",
+        "pt",
+        "ro",
+        "rs_latin",
+        "sk",
+        "sl",
+        "sq",
+        "sv",
+        "sw",
+        "tl",
+        "tr",
+        "uz",
+        "vi"
+      ],
+      "charsetFile": "latin_g2.charset.txt",
+      "onnxFile": "onnx/latin_g2.onnx",
+      "textInputName": "text",
+      "size": 15399061,
+      "sha256": "75e84a1bf73fe62c3de77ade14de4cdaddd4c761bd6b7c3fe0e7bab160855bdb"
+    },
+    {
+      "modelName": "cyrillic_g2",
+      "kind": "recognizer",
+      "languages": [
+        "ru",
+        "rs_cyrillic",
+        "be",
+        "bg",
+        "uk",
+        "mn",
+        "abq",
+        "ady",
+        "kbd",
+        "ava",
+        "dar",
+        "inh",
+        "che",
+        "lbe",
+        "lez",
+        "tab",
+        "tjk"
+      ],
+      "charsetFile": "cyrillic_g2.charset.txt",
+      "onnxFile": "onnx/cyrillic_g2.onnx",
+      "textInputName": "text",
+      "size": 15251029,
+      "sha256": "274afe8592143a318d83c13c707677abe8621d718d81e40c149cf807f6b53852"
+    },
+    {
+      "modelName": "japanese_g2",
+      "kind": "recognizer",
+      "languages": [
+        "ja"
+      ],
+      "charsetFile": "japanese_g2.charset.txt",
+      "onnxFile": "onnx/japanese_g2.onnx",
+      "textInputName": "text",
+      "size": 17314227,
+      "sha256": "ab9deee8f1b08fec2d39cad86606fcfd887b5c241c90202674413b709ef57833"
+    },
+    {
+      "modelName": "korean_g2",
+      "kind": "recognizer",
+      "languages": [
+        "ko"
+      ],
+      "charsetFile": "korean_g2.charset.txt",
+      "onnxFile": "onnx/korean_g2.onnx",
+      "textInputName": "text",
+      "size": 16074457,
+      "sha256": "09fb3b6076811cd4c4d0fd63037d554f58b85aee1de99dc3d1b2c217a2ac749b"
+    },
+    {
+      "modelName": "zh_sim_g2",
+      "kind": "recognizer",
+      "languages": [
+        "ch_sim"
+      ],
+      "charsetFile": "zh_sim_g2.charset.txt",
+      "onnxFile": "onnx/zh_sim_g2.onnx",
+      "textInputName": "text",
+      "size": 21944341,
+      "sha256": "b3b1a0e3b67a7c779ac943a0a1aea93f0eae76fc1f69791f06ae40b75350aec3"
+    },
+    {
+      "modelName": "telugu_g2",
+      "kind": "recognizer",
+      "languages": [
+        "te"
+      ],
+      "charsetFile": "telugu_g2.charset.txt",
+      "onnxFile": "onnx/telugu_g2.onnx",
+      "textInputName": "text",
+      "size": 15207853,
+      "sha256": "ca1739351af26c9f3506b670ab0061ca3cf611af968b08369eaf425bbb2c3837"
+    },
+    {
+      "modelName": "kannada_g2",
+      "kind": "recognizer",
+      "languages": [
+        "kn"
+      ],
+      "charsetFile": "kannada_g2.charset.txt",
+      "onnxFile": "onnx/kannada_g2.onnx",
+      "textInputName": "text",
+      "size": 15209909,
+      "sha256": "c2c6ed58d2661cd305e741d59ffaad5ec66eaffbc1eed0cfa4638931d33b3714"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 export * from '@qduc/easyocr-core';
 
+import { version as coreVersion } from '@qduc/easyocr-core';
 import type {
   DetectorModel,
   InferenceRunner,
@@ -18,6 +19,56 @@ const loadOrt = async (): Promise<OrtModule> => {
     ortModule = await import('onnxruntime-web');
   }
   return ortModule;
+};
+
+export interface DefaultModelBaseUrlOptions {
+  /** Git ref (tag/branch/SHA) in qduc/easyocr.js. Defaults to v${version} of @qduc/easyocr-core. */
+  ref?: string;
+}
+
+export const getDefaultModelBaseUrl = (options: DefaultModelBaseUrlOptions = {}): string => {
+  // Versioned by @qduc/easyocr-core so consumers can rely on stability.
+  // Uses media.githubusercontent.com to avoid Git LFS pointer responses.
+  const ref = options.ref ?? `v${coreVersion}`;
+  return `https://media.githubusercontent.com/media/qduc/easyocr.js/${ref}/models`;
+};
+
+const isGitLfsPointer = (text: string): boolean => {
+  const head = text.slice(0, 200);
+  return head.includes('version https://git-lfs.github.com/spec/v1') && head.includes('oid sha256:');
+};
+
+export interface FetchModelOptions {
+  signal?: AbortSignal;
+}
+
+export const fetchModel = async (url: string, options: FetchModelOptions = {}): Promise<Uint8Array> => {
+  if (typeof fetch === 'undefined') {
+    throw new Error('fetch is unavailable in this environment.');
+  }
+
+  const response = await fetch(url, { signal: options.signal });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch model from ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const contentLength = Number(response.headers.get('content-length') ?? '0');
+
+  // GitHub raw URLs for LFS objects frequently return a small text/plain pointer file.
+  if (contentType.startsWith('text/') || (contentLength > 0 && contentLength < 2048)) {
+    const text = await response.text();
+    if (isGitLfsPointer(text)) {
+      throw new Error(
+        'You fetched a Git LFS pointer file, not the actual model. ' +
+          'Use media.githubusercontent.com (or a release asset with CORS) instead of raw.githubusercontent.com.',
+      );
+    }
+    return new TextEncoder().encode(text);
+  }
+
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
 };
 
 export type WebImageInput =

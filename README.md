@@ -257,6 +257,41 @@ async function recognizeFromFileInput(fileInput: File): Promise<OcrResult[]> {
 
 This package requires ONNX models and character sets to operate.
 
+### Model Manifest (Machine-Readable)
+
+This repo ships a machine-readable model catalog at:
+
+- [models/manifest.json](models/manifest.json) (in this repository)
+- [packages/core/models/manifest.json](packages/core/models/manifest.json) (packaged with `@qduc/easyocr-core`)
+
+The manifest includes model metadata like `modelName`, `languages`, `charsetFile`, `onnxFile`, `textInputName`, `sha256`, and `size`, and is **versioned by `@qduc/easyocr-core`** via `packageVersion` so integrators can rely on stable availability per package version.
+
+In Node.js (ESM), you can import it directly (Node 20+):
+
+```ts
+import manifest from '@qduc/easyocr-core/models/manifest.json' assert { type: 'json' };
+
+console.log(manifest.packageVersion);
+console.log(manifest.models.map((m) => m.modelName));
+```
+
+If your environment/bundler doesn’t support JSON import assertions, you can also load it as a file (Node) or fetch it (Web) from wherever you host it.
+
+### Programmatic Language + Model Selection (Core)
+
+To avoid hardcoding language lists or re-implementing `guessModel` logic in every app:
+
+```ts
+import { getSupportedLanguages, resolveModelForLanguage } from '@qduc/easyocr-core';
+
+// 1) List languages for UI dropdowns
+const supported = getSupportedLanguages();
+
+// 2) Resolve the right model + charset for a language code (aliases supported)
+const resolved = resolveModelForLanguage('zh-cn');
+// => { model: 'zh_sim_g2', charset: 'zh_sim_g2.charset.txt', textInputName: 'text' }
+```
+
 ### Where Models Go
 
 Models should be placed in the `models/onnx/` directory (relative to your project root or the working directory when running the code):
@@ -311,6 +346,8 @@ See [models/README.md](models/README.md) for more export options.
 
 ### Supported Models
 
+The table below is a human-readable summary. For a canonical list (including hashes + sizes), use the manifest: [models/manifest.json](models/manifest.json).
+
 | Language | Recognition Model | Charset File | Notes |
 |----------|-------------------|--------------|-------|
 | English | `english_g2.onnx` | `english_g2.charset.txt` | Default model |
@@ -323,6 +360,34 @@ See [models/README.md](models/README.md) for more export options.
 | Kannada | `kannada_g2.onnx` | `kannada_g2.charset.txt` | South Indian language |
 
 **Detector:** All languages use the same detector `craft_mlt_25k.onnx` (multi-lingual text).
+
+### Web: Canonical Model Base URL + LFS Pointer Safety
+
+In the browser you must host models on a CORS-enabled origin. This project exports a default, CORS-safe base URL and a fetch helper that detects Git LFS pointer files:
+
+```ts
+import {
+  fetchModel,
+  getDefaultModelBaseUrl,
+  loadDetectorModel,
+  loadRecognizerModel,
+  loadCharset,
+  resolveModelForLanguage,
+} from '@qduc/easyocr-web';
+
+const baseUrl = getDefaultModelBaseUrl();
+const { model, charset, textInputName } = resolveModelForLanguage('ja');
+
+// Use fetchModel() so you get a clear error if a URL returns a Git LFS pointer.
+const detectorBytes = await fetchModel(`${baseUrl}/onnx/craft_mlt_25k.onnx`);
+const recognizerBytes = await fetchModel(`${baseUrl}/onnx/${model}.onnx`);
+
+const detector = await loadDetectorModel(detectorBytes);
+const charsetText = await loadCharset(`${baseUrl}/${charset}`);
+const recognizer = await loadRecognizerModel(recognizerBytes, { charset: charsetText, textInputName });
+```
+
+Avoid `raw.githubusercontent.com` for `.onnx` files tracked with Git LFS; it can return a tiny pointer file rather than the binary.
 
 ## Repository Structure
 
@@ -368,6 +433,16 @@ bun run build
 # Run tests
 bun run test
 ```
+
+### Updating the Model Manifest
+
+If you add/remove models in `models/`, regenerate the manifest:
+
+```bash
+node scripts/generate_models_manifest.mjs
+```
+
+The release process also regenerates this manifest so model availability stays tied to the published `@qduc/easyocr-core` version.
 
 ### Working on a Single Package
 
