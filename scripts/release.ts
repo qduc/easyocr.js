@@ -18,8 +18,10 @@ async function release() {
   if (!isDryRun) {
     const status = await $`git status --porcelain`.text();
     if (status.trim() !== '') {
-      console.error('❌ Working directory is not clean. Please commit or stash changes.');
-      process.exit(1);
+      console.error('❌ Working directory is not clean. Do you want to continue? (y/n)');
+      if (prompt('Continue?') !== 'y') {
+        process.exit(1);
+      }
     }
 
     const branch = await $`git branch --show-current`.text();
@@ -104,8 +106,13 @@ async function release() {
   for (const pkgName of publishOrder) {
     console.log(`📦 Publishing @qduc/easyocr-${pkgName}...`);
     try {
+      // Check for npm authentication
+      const npmWhoami = await $`npm whoami`.text().catch(() => '');
+      if (!npmWhoami.trim()) {
+          await $`npm login`.inherit();
+      }
       // Use bash to cd and run npm publish to ensure we are in the right directory context
-      await $`cd packages/${pkgName} && npm publish --access public`;
+        await $`cd packages/${pkgName} && npm publish --access public`.inherit();
     } catch (err) {
       console.error(`❌ Failed to publish @qduc/easyocr-${pkgName}.`);
       console.error('The release was partially successful. You may need to manually fix and publish the remaining packages.');
@@ -115,7 +122,7 @@ async function release() {
 
   // 7. Push
   console.log('📤 Pushing to remote...');
-  await $`git push origin main --tags`;
+    await $`git push origin main --tags`.inherit();
 
   console.log(`\n🎉 Successfully released v${newVersion}!`);
 }
