@@ -7,7 +7,7 @@ This repo is a small Bun-workspaces monorepo for a JavaScript/TypeScript port of
 - `packages/core/`: shared types and pipeline primitives (published as `@qduc/easyocr-core`)
 - `packages/node/`: Node.js runtime wrapper (published as `@qduc/easyocr-node`)
 - `packages/web/`: browser runtime wrapper (published as `@qduc/easyocr-web`; currently mostly a re-export of core)
-- `packages/cli/`: CLI entrypoint (published as `@qduc/easyocr-cli`, binary: `easyocr`)
+
 - `examples/`: runnable sample usage
 - `benchmarks/`: performance experiments (optional; may not exist in every checkout)
 - `models/`: model assets + export scripts (do not edit weights unless you are intentionally updating them)
@@ -46,7 +46,7 @@ For python environment, we use uv, create an venv in project root:
 
 - Framework: Vitest (see `vitest.config.ts`).
 - Test locations: `packages/*/test/*.test.ts`.
-- Note: `packages/cli` currently has no real tests (its `test` script is a placeholder).
+
 - Add/adjust tests with behavior changes; there is no enforced coverage threshold in this repo today.
 
 ## Debugging Accuracy Drifts Against Python Reference
@@ -57,6 +57,22 @@ See `python_reference/validation/README.md` for detailed instructions on generat
 
 - PyTorch weights live under `models/` and ONNX exports go to `models/onnx/` (generated).
 - Export + validate with `python models/export_onnx.py --detector --recognizer --validate` (see `models/README.md`).
+
+## Publishing & Release Process
+
+To publish all workspace packages to npm:
+
+- `bun run release <version>`: e.g., `bun run release 0.0.2`
+- `bun run release --dry-run`: to preview changes without committing or publishing
+
+This script automates:
+1. Running builds and tests
+2. Bumping versions in all `package.json` files
+3. Syncing internal dependency versions
+4. Git commit, tag, and push
+5. Sequential publication of all packages
+
+Ensure you are logged into npm and have a clean working directory before running.
 
 ## Commit & Pull Request Guidelines
 

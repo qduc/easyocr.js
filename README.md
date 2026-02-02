@@ -329,7 +329,7 @@ See [models/README.md](models/README.md) for more export options.
 - [packages/core](packages/core): Runtime-agnostic types, pipeline logic, image processing, and post-processing. Use this for type definitions.
 - [packages/node](packages/node): Node.js implementations using `sharp` for image loading and `onnxruntime-node` for inference.
 - [packages/web](packages/web): Browser implementations using Canvas APIs and `onnxruntime-web`.
-- [packages/cli](packages/cli): Command-line tool for running OCR from the terminal.
+
 - [examples](examples): Sample code for Node.js and browser usage.
 - [models](models): Model assets and export scripts (see [models/README.md](models/README.md)).
 - [python_reference](python_reference): Original EasyOCR implementation and validation tools.
@@ -377,9 +377,6 @@ bun run -F @qduc/easyocr-node build
 
 # Test only @qduc/easyocr-core
 bun run -F @qduc/easyocr-core test
-
-# Run the CLI
-bun run -F @qduc/easyocr-cli easyocr image.png
 ```
 
 ### Running Examples
