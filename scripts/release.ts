@@ -1,6 +1,7 @@
 import { $ } from 'bun';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { spawnSync } from 'child_process';
 
 const PACKAGES = ['core', 'node', 'web'];
 const ROOT_DIR = process.cwd();
@@ -56,12 +57,22 @@ async function release() {
     newVersion = prompt('Enter new version:') || '';
   }
 
-  if (!newVersion || newVersion === currentVersion) {
-    console.error('❌ Invalid version or same as current. Aborting.');
+    if (!newVersion) {
+        console.error('❌ Invalid version. Aborting.');
     process.exit(1);
   }
 
-  console.log(`✨ Bumping versions to ${newVersion}...`);
+    const isSameVersion = newVersion === currentVersion;
+    if (isSameVersion) {
+        console.warn(`⚠️ Version ${newVersion} is already the current version.`);
+        if (prompt('Skip bumping and proceed to publish/tag? (y/n)') !== 'y') {
+            process.exit(0);
+        }
+    }
+
+    if (!isSameVersion) {
+      console.log(`✨ Bumping versions to ${newVersion}...`);
+  }
 
   // 4. Update all package.json files
   const updatedFiles = [];
@@ -81,11 +92,13 @@ async function release() {
       }
     }
 
-    if (!isDryRun) {
+      if (!isDryRun && !isSameVersion) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
     }
     updatedFiles.push(pkgPath);
-    console.log(`   ✅ Updated @qduc/easyocr-${pkgName}`);
+      if (!isSameVersion) {
+          console.log(`   ✅ Updated @qduc/easyocr-${pkgName}`);
+      }
   }
 
   if (isDryRun) {
@@ -96,9 +109,21 @@ async function release() {
 
   // 5. Git Commit, Tag
   console.log('💾 Committing and tagging...');
-  await $`git add ${updatedFiles}`;
-  await $`git commit -m "release: v${newVersion}"`;
-  await $`git tag v${newVersion}`;
+    const tagExists = (await $`git rev-parse v${newVersion} 2>/dev/null`.text().catch(() => '')).trim() !== '';
+
+    if (tagExists) {
+        console.log(`   ⏭️ Tag v${newVersion} already exists. Skipping commit and tag.`);
+    } else {
+        // Check if there are changes to commit
+        const hasChanges = (await $`git status --porcelain`.text()).trim() !== '';
+        if (hasChanges) {
+            await $`git add ${updatedFiles}`;
+            await $`git commit -m "release: v${newVersion}"`;
+        } else {
+            console.log('   ⏭️ No changes to commit.');
+        }
+        await $`git tag v${newVersion}`;
+    }
 
   // 6. Publish in order
   // Order matters because of dependencies: core first, then node/web, then cli
@@ -109,20 +134,27 @@ async function release() {
       // Check for npm authentication
       const npmWhoami = await $`npm whoami`.text().catch(() => '');
       if (!npmWhoami.trim()) {
-          await $`npm login`.inherit();
+          spawnSync('npm', ['login'], { stdio: 'inherit' });
       }
-      // Use bash to cd and run npm publish to ensure we are in the right directory context
-        await $`cd packages/${pkgName} && npm publish --access public`.inherit();
+        // Use spawnSync to ensure interactivity for OTP prompts
+        const publishResult = spawnSync('npm', ['publish', '--access', 'public'], {
+            cwd: join(ROOT_DIR, 'packages', pkgName),
+            stdio: 'inherit'
+        });
+        if (publishResult.status !== 0) {
+            throw new Error(`npm publish failed with exit code ${publishResult.status}`);
+        }
     } catch (err) {
       console.error(`❌ Failed to publish @qduc/easyocr-${pkgName}.`);
-      console.error('The release was partially successful. You may need to manually fix and publish the remaining packages.');
-      process.exit(1);
+        if (prompt('Skip this error and continue to next package? (y/n)') !== 'y') {
+            process.exit(1);
+        }
     }
   }
 
   // 7. Push
   console.log('📤 Pushing to remote...');
-    await $`git push origin main --tags`.inherit();
+    spawnSync('git', ['push', 'origin', 'main', '--tags'], { stdio: 'inherit' });
 
   console.log(`\n🎉 Successfully released v${newVersion}!`);
 }
