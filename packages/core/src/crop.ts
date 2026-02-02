@@ -12,10 +12,16 @@ export const cropHorizontal = (image: RasterImage, boxes: Box[]): CropResult[] =
 
 export const cropFree = (image: RasterImage, boxes: Box[]): CropResult[] => {
   return boxes.map((box) => {
-    const xs = box.map((point) => point[0]);
-    const ys = box.map((point) => point[1]);
-    const width = Math.max(1, Math.round(Math.max(...xs) - Math.min(...xs)));
-    const height = Math.max(1, Math.round(Math.max(...ys) - Math.min(...ys)));
+    const tl = box[0];
+    const tr = box[1];
+    const br = box[2];
+    const bl = box[3];
+    const widthA = Math.hypot(br[0] - bl[0], br[1] - bl[1]);
+    const widthB = Math.hypot(tr[0] - tl[0], tr[1] - tl[1]);
+    const heightA = Math.hypot(tr[0] - br[0], tr[1] - br[1]);
+    const heightB = Math.hypot(tl[0] - bl[0], tl[1] - bl[1]);
+    const width = Math.max(1, Math.trunc(Math.max(widthA, widthB)));
+    const height = Math.max(1, Math.trunc(Math.max(heightA, heightB)));
     return { image: warpPerspective(image, box, width, height).image, box, rotation: 0 };
   });
 };

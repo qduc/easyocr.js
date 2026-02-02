@@ -4,6 +4,9 @@ import { clamp, resizeLongSide, toFloatImage } from './utils.js';
 export interface DetectorPreprocessResult {
   input: Tensor;
   resized: RasterImage;
+  padded: RasterImage;
+  padRight: number;
+  padBottom: number;
   scaleX: number;
   scaleY: number;
 }
@@ -19,10 +22,37 @@ export interface DetectorPostprocessResult {
   freeList: Box[];
 }
 
+export interface DetectorPostprocessDebugResult extends DetectorPostprocessResult {
+  rawBoxesHeatmap: Box[];
+  rawBoxesAdjusted: Box[];
+}
+
 export const detectorPreprocess = (image: RasterImage, options: OcrOptions): DetectorPreprocessResult => {
-  const target = Math.min(options.canvasSize, Math.max(image.width, image.height) * options.magRatio);
-  const { image: resized } = resizeLongSide(image, target, options.align);
-  const floatImage = toFloatImage(resized, options.mean, options.std);
+  const targetSize = Math.min(options.canvasSize, Math.max(image.width, image.height) * options.magRatio);
+  const { image: resized, scale } = resizeLongSide(image, targetSize, options.align);
+  const stride = options.align || 32;
+  const padBottom = resized.height % stride === 0 ? 0 : stride - (resized.height % stride);
+  const padRight = resized.width % stride === 0 ? 0 : stride - (resized.width % stride);
+  const paddedWidth = resized.width + padRight;
+  const paddedHeight = resized.height + padBottom;
+  const paddedData = new Uint8Array(paddedWidth * paddedHeight * resized.channels);
+  for (let y = 0; y < resized.height; y += 1) {
+    const srcRow = y * resized.width * resized.channels;
+    const dstRow = y * paddedWidth * resized.channels;
+    paddedData.set(
+      resized.data.subarray(srcRow, srcRow + resized.width * resized.channels),
+      dstRow,
+    );
+  }
+  const padded: RasterImage = {
+    data: paddedData,
+    width: paddedWidth,
+    height: paddedHeight,
+    channels: resized.channels,
+    channelOrder: resized.channelOrder,
+  };
+
+  const floatImage = toFloatImage(padded, options.mean, options.std);
   const { width, height } = floatImage;
   const data = new Float32Array(1 * 3 * height * width);
   for (let y = 0; y < height; y += 1) {
@@ -41,6 +71,9 @@ export const detectorPreprocess = (image: RasterImage, options: OcrOptions): Det
       type: 'float32',
     },
     resized,
+    padded,
+    padRight,
+    padBottom,
     scaleX: resized.width / image.width,
     scaleY: resized.height / image.height,
   };
@@ -81,6 +114,17 @@ export const detectorPostprocess = (
   scaleX: number,
   scaleY: number,
 ): DetectorPostprocessResult => {
+  const { horizontalList, freeList } = detectorPostprocessDebug(textMap, linkMap, options, scaleX, scaleY);
+  return { horizontalList, freeList };
+};
+
+export const detectorPostprocessDebug = (
+  textMap: Heatmap,
+  linkMap: Heatmap,
+  options: OcrOptions,
+  scaleX: number,
+  scaleY: number,
+): DetectorPostprocessDebugResult => {
   if (textMap.width !== linkMap.width || textMap.height !== linkMap.height) {
     throw new Error('Detector output heatmaps must share the same shape.');
   }
@@ -89,6 +133,8 @@ export const detectorPostprocess = (
   const width = text.width;
   const height = text.height;
   const size = width * height;
+
+  // Match EasyOCR craft_utils.getDetBoxes_core (poly=False, estimate_num_chars=False).
   const textScore = new Uint8Array(size);
   const linkScore = new Uint8Array(size);
   const combined = new Uint8Array(size);
@@ -102,7 +148,71 @@ export const detectorPostprocess = (
 
   const visited = new Uint8Array(size);
   const queue = new Int32Array(size);
-  const boxes: Box[] = [];
+  const rawBoxesHeatmap: Box[] = [];
+  const rawBoxesAdjusted: Box[] = [];
+
+  const dilateRectInPlace = (
+    segmap: Uint8Array,
+    sx: number,
+    ex: number,
+    sy: number,
+    ey: number,
+    kSize: number,
+  ): void => {
+    const roiW = ex - sx;
+    const roiH = ey - sy;
+    if (roiW <= 0 || roiH <= 0) return;
+    const src = new Uint8Array(roiW * roiH);
+    for (let y = 0; y < roiH; y += 1) {
+      const base = (sy + y) * width + sx;
+      src.set(segmap.subarray(base, base + roiW), y * roiW);
+    }
+    const dst = new Uint8Array(roiW * roiH);
+    const anchor = Math.floor(kSize / 2);
+    for (let y = 0; y < roiH; y += 1) {
+      for (let x = 0; x < roiW; x += 1) {
+        let hit = 0;
+        for (let ky = 0; ky < kSize && !hit; ky += 1) {
+          const yy = y + ky - anchor;
+          if (yy < 0 || yy >= roiH) continue;
+          const row = yy * roiW;
+          for (let kx = 0; kx < kSize; kx += 1) {
+            const xx = x + kx - anchor;
+            if (xx < 0 || xx >= roiW) continue;
+            if (src[row + xx]) {
+              hit = 255;
+              break;
+            }
+          }
+        }
+        dst[y * roiW + x] = hit;
+      }
+    }
+    for (let y = 0; y < roiH; y += 1) {
+      const base = (sy + y) * width + sx;
+      segmap.set(dst.subarray(y * roiW, y * roiW + roiW), base);
+    }
+  };
+
+  const orderClockwiseStartTopLeft = (box: Point2D[]): Point2D[] => {
+    if (box.length !== 4) return box;
+    let start = 0;
+    let minSum = Infinity;
+    for (let i = 0; i < 4; i += 1) {
+      const sum = box[i][0] + box[i][1];
+      if (sum < minSum) {
+        minSum = sum;
+        start = i;
+      }
+    }
+    const rolled: Point2D[] = [
+      box[(start + 0) % 4],
+      box[(start + 1) % 4],
+      box[(start + 2) % 4],
+      box[(start + 3) % 4],
+    ];
+    return rolled;
+  };
 
   for (let i = 0; i < size; i += 1) {
     if (!combined[i] || visited[i]) continue;
@@ -110,6 +220,7 @@ export const detectorPostprocess = (
     let qTail = 0;
     queue[qTail++] = i;
     visited[i] = 1;
+
     let minX = width - 1;
     let maxX = 0;
     let minY = height - 1;
@@ -117,6 +228,7 @@ export const detectorPostprocess = (
     let maxText = -Infinity;
     let area = 0;
     const component: number[] = [];
+
     while (qHead < qTail) {
       const idx = queue[qHead++];
       component.push(idx);
@@ -128,62 +240,67 @@ export const detectorPostprocess = (
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
       if (text.data[idx] > maxText) maxText = text.data[idx];
-      const neighbors = [];
-      if (x > 0) neighbors.push(idx - 1);
-      if (x < width - 1) neighbors.push(idx + 1);
-      if (y > 0) neighbors.push(idx - width);
-      if (y < height - 1) neighbors.push(idx + width);
-      
-      for (const nIdx of neighbors) {
-        if (visited[nIdx] || !combined[nIdx]) continue;
-        visited[nIdx] = 1;
-        queue[qTail++] = nIdx;
+
+      if (x > 0) {
+        const n = idx - 1;
+        if (!visited[n] && combined[n]) {
+          visited[n] = 1;
+          queue[qTail++] = n;
+        }
+      }
+      if (x < width - 1) {
+        const n = idx + 1;
+        if (!visited[n] && combined[n]) {
+          visited[n] = 1;
+          queue[qTail++] = n;
+        }
+      }
+      if (y > 0) {
+        const n = idx - width;
+        if (!visited[n] && combined[n]) {
+          visited[n] = 1;
+          queue[qTail++] = n;
+        }
+      }
+      if (y < height - 1) {
+        const n = idx + width;
+        if (!visited[n] && combined[n]) {
+          visited[n] = 1;
+          queue[qTail++] = n;
+        }
       }
     }
+
     if (area < 10) continue;
     if (maxText < options.textThreshold) continue;
 
     const segmap = new Uint8Array(size);
     for (const idx of component) {
-      if (linkScore[idx] && !textScore[idx]) continue;
-      segmap[idx] = 1;
+      segmap[idx] = 255;
+    }
+    for (const idx of component) {
+      if (linkScore[idx] && !textScore[idx]) {
+        segmap[idx] = 0;
+      }
     }
 
-    const boxWidth = maxX - minX + 1;
-    const boxHeight = maxY - minY + 1;
-    const niter = Math.floor(
-      Math.sqrt((area * Math.min(boxWidth, boxHeight)) / (boxWidth * boxHeight)) * 2,
-    );
+    const boxW = maxX - minX + 1;
+    const boxH = maxY - minY + 1;
+    const niter = Math.trunc(Math.sqrt((area * Math.min(boxW, boxH)) / (boxW * boxH)) * 2);
     const sx = clamp(minX - niter, 0, width - 1);
-    const ex = clamp(maxX + niter + 1, 0, width);
     const sy = clamp(minY - niter, 0, height - 1);
-    const ey = clamp(maxY + niter + 1, 0, height);
+    const ex = clamp(minX + boxW + niter + 1, 0, width);
+    const ey = clamp(minY + boxH + niter + 1, 0, height);
 
     if (niter > 0) {
-      const dilated = segmap.slice();
-      const radius = Math.floor(niter / 2);
-      for (let y = sy; y < ey; y += 1) {
-        for (let x = sx; x < ex; x += 1) {
-          if (!segmap[y * width + x]) continue;
-          for (let dy = -radius; dy <= radius; dy += 1) {
-            const yy = y + dy;
-            if (yy < sy || yy >= ey) continue;
-            for (let dx = -radius; dx <= radius; dx += 1) {
-              const xx = x + dx;
-              if (xx < sx || xx >= ex) continue;
-              dilated[yy * width + xx] = 1;
-            }
-          }
-        }
-      }
-      segmap.set(dilated);
+      dilateRectInPlace(segmap, sx, ex, sy, ey, 1 + niter);
     }
 
     const points: Point2D[] = [];
-    let segMinX = width - 1;
-    let segMaxX = 0;
-    let segMinY = height - 1;
-    let segMaxY = 0;
+    let segMinX = Infinity;
+    let segMaxX = -Infinity;
+    let segMinY = Infinity;
+    let segMaxY = -Infinity;
     for (let y = sy; y < ey; y += 1) {
       for (let x = sx; x < ex; x += 1) {
         if (!segmap[y * width + x]) continue;
@@ -211,16 +328,25 @@ export const detectorPostprocess = (
       ];
     }
 
-    const box: Box = [
-      [boxPoints[0][0] / scaleX, boxPoints[0][1] / scaleY],
-      [boxPoints[1][0] / scaleX, boxPoints[1][1] / scaleY],
-      [boxPoints[2][0] / scaleX, boxPoints[2][1] / scaleY],
-      [boxPoints[3][0] / scaleX, boxPoints[3][1] / scaleY],
+    boxPoints = orderClockwiseStartTopLeft(boxPoints);
+    const heatmapBox: Box = [
+      [boxPoints[0][0], boxPoints[0][1]],
+      [boxPoints[1][0], boxPoints[1][1]],
+      [boxPoints[2][0], boxPoints[2][1]],
+      [boxPoints[3][0], boxPoints[3][1]],
     ];
-    boxes.push(box);
+    rawBoxesHeatmap.push(heatmapBox);
+
+    rawBoxesAdjusted.push([
+      [heatmapBox[0][0] / scaleX, heatmapBox[0][1] / scaleY],
+      [heatmapBox[1][0] / scaleX, heatmapBox[1][1] / scaleY],
+      [heatmapBox[2][0] / scaleX, heatmapBox[2][1] / scaleY],
+      [heatmapBox[3][0] / scaleX, heatmapBox[3][1] / scaleY],
+    ]);
   }
 
-  return groupTextBoxes(boxes, options);
+  const grouped = groupTextBoxes(rawBoxesAdjusted, options);
+  return { ...grouped, rawBoxesHeatmap, rawBoxesAdjusted };
 };
 
 const groupTextBoxes = (boxes: Box[], options: OcrOptions): DetectorPostprocessResult => {
@@ -527,11 +653,10 @@ export const groupBoxesByLine = (boxes: Box[], options: OcrOptions): LineGroup[]
 };
 
 export const orderBoxes = (boxes: Box[], options: OcrOptions): Box[] => {
-  const lines = groupBoxesByLine(boxes, options);
-  const ordered: Box[] = [];
-  for (const line of lines) {
-    line.boxes.sort((a, b) => boxMetrics(a).centerX - boxMetrics(b).centerX);
-    ordered.push(...line.boxes);
-  }
-  return ordered;
+  // Match Python EasyOCR ordering used in utils.get_image_list(sort_output=True):
+  // sort by the vertical position of the first point.
+  return boxes
+    .map((box, index) => ({ box, index, y: box[0][1] }))
+    .sort((a, b) => (a.y === b.y ? a.index - b.index : a.y - b.y))
+    .map((item) => item.box);
 };

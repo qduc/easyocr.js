@@ -1,10 +1,25 @@
 import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { loadDetectorModel, loadImage, loadRecognizerModel, recognize } from '../packages/node/dist/index.js';
+import * as easyocr from '../packages/node/dist/index.js';
 
 const repoRoot = new URL('..', import.meta.url);
-const imagePath = process.argv[2]
-  ? fileURLToPath(new URL(process.argv[2], `file://${process.cwd()}/`))
+const argv = process.argv.slice(2);
+let imageArg = null;
+let traceDir = null;
+for (let i = 0; i < argv.length; i += 1) {
+  const arg = argv[i];
+  if (arg === '--trace-dir') {
+    traceDir = argv[i + 1] ?? null;
+    i += 1;
+    continue;
+  }
+  if (!arg.startsWith('-') && imageArg === null) {
+    imageArg = arg;
+  }
+}
+
+const imagePath = imageArg
+  ? fileURLToPath(new URL(imageArg, `file://${process.cwd()}/`))
   : fileURLToPath(new URL('./Screenshot_20260201_193653.png', import.meta.url));
 
 const detectorPath = fileURLToPath(new URL('./models/onnx/craft_mlt_25k.onnx', repoRoot));
@@ -30,13 +45,30 @@ const main = async () => {
     throw new Error(`Charset file is empty: ${charsetPath}`);
   }
 
-  const image = await loadImage(imagePath);
-  const detector = await loadDetectorModel(detectorPath);
-  const recognizer = await loadRecognizerModel(recognizerPath, {
+  const image = await easyocr.loadImage(imagePath);
+  const recognitionImage =
+    typeof easyocr.loadGrayscaleImage === 'function' ? await easyocr.loadGrayscaleImage(imagePath) : undefined;
+  const detector = await easyocr.loadDetectorModel(detectorPath);
+  const recognizer = await easyocr.loadRecognizerModel(recognizerPath, {
     charset,
     textInputName: 'text',
   });
-  const results = await recognize({ image, detector, recognizer });
+  const trace =
+    traceDir && typeof easyocr.createFsTraceWriter === 'function'
+      ? easyocr.createFsTraceWriter({
+          traceDir,
+          runMeta: {
+            impl: 'js',
+            imagePath,
+            detectorPath,
+            recognizerPath,
+          },
+        })
+      : undefined;
+  if (traceDir && !trace) {
+    console.warn('Tracing requested but createFsTraceWriter is not available (run `bun run build` first).');
+  }
+  const results = await easyocr.recognize({ image, recognitionImage, detector, recognizer, trace });
   console.log(JSON.stringify(results, null, 2));
 };
 

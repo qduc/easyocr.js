@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   loadImage,
+  loadGrayscaleImage,
   loadDetectorModel,
   loadRecognizerModel,
   loadCharset,
@@ -30,25 +31,22 @@ describe('Recognition Discrepancy Repro', () => {
     const charsetPath = path.join(rootDir, 'models/english_g2.charset.txt');
 
     const image = await loadImage(imagePath);
+    const recognitionImage = await loadGrayscaleImage(imagePath);
     const detector = await loadDetectorModel(detectorPath);
     const charset = await loadCharset(charsetPath);
     const recognizer = await loadRecognizerModel(recognizerPath, { charset });
 
-    // Use default options
-    const results = await recognize({ image, detector, recognizer });
-    
-    console.log('Final Detected results count:', results.length);
-    results.forEach((r, i) => {
-      console.log(`Result [${i}]: "${r.text}" (${r.confidence.toFixed(4)})`);
-    });
-
+    const results = await recognize({ image, recognitionImage, detector, recognizer });
     const expected = JSON.parse(await readFile(expectedPath, 'utf8'));
 
-    // We expect some differences because our detector is now more accurate 
-    // and might split words that the reference merged (or vice versa).
-    // The main goal was to fix the massive merging and poor recognition.
-    
-    expect(results.length).toBeGreaterThan(0);
+    expect(results.length).toBe(expected.results.length);
+    for (let i = 0; i < expected.results.length; i += 1) {
+      expect(results[i].text).toBe(expected.results[i].text);
+      for (let p = 0; p < 4; p += 1) {
+        expect(results[i].box[p][0]).toBeCloseTo(expected.results[i].box[p][0], 6);
+        expect(results[i].box[p][1]).toBeCloseTo(expected.results[i].box[p][1], 6);
+      }
+    }
   }, 30000);
 
   it('should match recognition for expected boxes (bypassing detector)', async () => {
@@ -60,13 +58,14 @@ describe('Recognition Discrepancy Repro', () => {
     const charsetPath = path.join(rootDir, 'models/english_g2.charset.txt');
 
     const image = await loadImage(imagePath);
+    const recognitionImage = await loadGrayscaleImage(imagePath);
     const charset = await loadCharset(charsetPath);
     const recognizer = await loadRecognizerModel(recognizerPath, { charset });
 
     const expected = JSON.parse(await readFile(expectedPath, 'utf8'));
     
     const boxes = expected.results.map((r: any) => r.box);
-    const crops = buildCrops(image, boxes, [], DEFAULT_OCR_OPTIONS);
+    const crops = buildCrops(recognitionImage, boxes, [], DEFAULT_OCR_OPTIONS);
     
     for (let i = 0; i < crops.length; i++) {
       const crop = crops[i];
@@ -86,9 +85,8 @@ describe('Recognition Discrepancy Repro', () => {
         recognizer.blankIndex ?? 0,
         [],
       );
-      
-      console.log(`Expected [${i}]: "${expected.results[i].text}"`);
-      console.log(`Detected [${i}]: "${decoded.text}" (conf: ${decoded.confidence.toFixed(4)})`);
+
+      expect(decoded.text).toBe(expected.results[i].text);
     }
   }, 30000);
 });

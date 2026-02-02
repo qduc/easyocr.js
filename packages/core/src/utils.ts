@@ -168,6 +168,121 @@ export const resizeGrayscaleBicubic = (
   return resized;
 };
 
+export const resizeGrayscaleLinear = (
+  data: Float32Array,
+  width: number,
+  height: number,
+  targetWidth: number,
+  targetHeight: number,
+): Float32Array => {
+  if (targetWidth === width && targetHeight === height) {
+    return data;
+  }
+  const out = new Float32Array(targetWidth * targetHeight);
+  const xScale = width / targetWidth;
+  const yScale = height / targetHeight;
+  for (let y = 0; y < targetHeight; y += 1) {
+    const srcY = (y + 0.5) * yScale - 0.5;
+    const y0 = clamp(Math.floor(srcY), 0, height - 1);
+    const y1 = clamp(y0 + 1, 0, height - 1);
+    const wy = srcY - y0;
+    for (let x = 0; x < targetWidth; x += 1) {
+      const srcX = (x + 0.5) * xScale - 0.5;
+      const x0 = clamp(Math.floor(srcX), 0, width - 1);
+      const x1 = clamp(x0 + 1, 0, width - 1);
+      const wx = srcX - x0;
+      const v00 = data[y0 * width + x0];
+      const v10 = data[y0 * width + x1];
+      const v01 = data[y1 * width + x0];
+      const v11 = data[y1 * width + x1];
+      const top = v00 + (v10 - v00) * wx;
+      const bottom = v01 + (v11 - v01) * wx;
+      out[y * targetWidth + x] = top + (bottom - top) * wy;
+    }
+  }
+  return out;
+};
+
+const sinc = (x: number): number => {
+  if (x === 0) return 1;
+  const pix = Math.PI * x;
+  return Math.sin(pix) / pix;
+};
+
+const lanczosWeight = (x: number, a: number): number => {
+  const ax = Math.abs(x);
+  if (ax >= a) return 0;
+  return sinc(x) * sinc(x / a);
+};
+
+export const resizeGrayscaleLanczos = (
+  data: Float32Array,
+  width: number,
+  height: number,
+  targetWidth: number,
+  targetHeight: number,
+  a = 3,
+): Float32Array => {
+  if (targetWidth === width && targetHeight === height) {
+    return data;
+  }
+  const out = new Float32Array(targetWidth * targetHeight);
+  const xScale = width / targetWidth;
+  const yScale = height / targetHeight;
+  for (let y = 0; y < targetHeight; y += 1) {
+    const srcY = (y + 0.5) * yScale - 0.5;
+    const yInt = Math.floor(srcY);
+    for (let x = 0; x < targetWidth; x += 1) {
+      const srcX = (x + 0.5) * xScale - 0.5;
+      const xInt = Math.floor(srcX);
+      let accum = 0;
+      let weightSum = 0;
+      for (let m = yInt - a + 1; m <= yInt + a; m += 1) {
+        const yy = clamp(m, 0, height - 1);
+        const wy = lanczosWeight(srcY - m, a);
+        if (wy === 0) continue;
+        for (let n = xInt - a + 1; n <= xInt + a; n += 1) {
+          const xx = clamp(n, 0, width - 1);
+          const wx = lanczosWeight(srcX - n, a);
+          if (wx === 0) continue;
+          const w = wx * wy;
+          accum += data[yy * width + xx] * w;
+          weightSum += w;
+        }
+      }
+      out[y * targetWidth + x] = weightSum === 0 ? 0 : accum / weightSum;
+    }
+  }
+  return out;
+};
+
+export const padToWidthReplicateLast = (
+  data: Float32Array,
+  width: number,
+  height: number,
+  channels: number,
+  targetWidth: number,
+): Float32Array => {
+  if (width >= targetWidth) {
+    return data;
+  }
+  const out = new Float32Array(targetWidth * height * channels);
+  for (let c = 0; c < channels; c += 1) {
+    const channelOffset = c * width * height;
+    const outChannelOffset = c * targetWidth * height;
+    for (let y = 0; y < height; y += 1) {
+      const rowOffset = channelOffset + y * width;
+      const outRowOffset = outChannelOffset + y * targetWidth;
+      out.set(data.subarray(rowOffset, rowOffset + width), outRowOffset);
+      const last = out[outRowOffset + width - 1];
+      for (let x = width; x < targetWidth; x += 1) {
+        out[outRowOffset + x] = last;
+      }
+    }
+  }
+  return out;
+};
+
 export const resizeLongSide = (image: RasterImage, maxSide: number, align: number): ResizeResult => {
   const { width, height } = image;
   const maxDim = Math.max(width, height);
@@ -176,10 +291,8 @@ export const resizeLongSide = (image: RasterImage, maxSide: number, align: numbe
   const targetHeight = Math.max(1, Math.floor(height * scale));
   const resized = resizeImage(image, targetWidth, targetHeight);
 
-  // IMPORTANT: Python EasyOCR does NOT pad to alignment boundaries.
-  // The ONNX CRAFT model was exported with dynamic shapes and accepts any input size.
-  // Padding was causing incorrect detection results because the model sees different input dimensions.
-  // Simply return the resized image without padding to match Python's behavior.
+  // Python EasyOCR pads detector inputs to multiples of 32 (bottom/right) after resizing.
+  // We keep resizeLongSide responsible only for resizing; detectorPreprocess performs padding.
   return { image: resized, scale };
 };
 
@@ -347,19 +460,33 @@ export const warpPerspective = (image: RasterImage, box: Box, outputWidth: numbe
     [outputWidth - 1, outputHeight - 1],
     [0, outputHeight - 1],
   ];
-  const transform = solveHomography(box, dst);
+  // We need a mapping from output pixel (dst) -> input pixel (src) for sampling.
+  const transform = solveHomography(dst, box);
   const out = new Uint8Array(outputWidth * outputHeight * image.channels);
   for (let y = 0; y < outputHeight; y += 1) {
     for (let x = 0; x < outputWidth; x += 1) {
       const denom = transform[6] * x + transform[7] * y + transform[8];
       const srcX = (transform[0] * x + transform[1] * y + transform[2]) / denom;
       const srcY = (transform[3] * x + transform[4] * y + transform[5]) / denom;
-      const sx = clamp(Math.round(srcX), 0, image.width - 1);
-      const sy = clamp(Math.round(srcY), 0, image.height - 1);
-      const srcIndex = (sy * image.width + sx) * image.channels;
+      const x0 = clamp(Math.floor(srcX), 0, image.width - 1);
+      const y0 = clamp(Math.floor(srcY), 0, image.height - 1);
+      const x1 = clamp(x0 + 1, 0, image.width - 1);
+      const y1 = clamp(y0 + 1, 0, image.height - 1);
+      const wx = srcX - x0;
+      const wy = srcY - y0;
+      const idx00 = (y0 * image.width + x0) * image.channels;
+      const idx10 = (y0 * image.width + x1) * image.channels;
+      const idx01 = (y1 * image.width + x0) * image.channels;
+      const idx11 = (y1 * image.width + x1) * image.channels;
       const dstIndex = (y * outputWidth + x) * image.channels;
       for (let c = 0; c < image.channels; c += 1) {
-        out[dstIndex + c] = image.data[srcIndex + c];
+        const v00 = image.data[idx00 + c];
+        const v10 = image.data[idx10 + c];
+        const v01 = image.data[idx01 + c];
+        const v11 = image.data[idx11 + c];
+        const top = v00 + (v10 - v00) * wx;
+        const bottom = v01 + (v11 - v01) * wx;
+        out[dstIndex + c] = Math.round(top + (bottom - top) * wy);
       }
     }
   }

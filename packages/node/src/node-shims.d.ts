@@ -1,6 +1,28 @@
 declare module 'node:fs/promises' {
   export const readFile: (path: string, encoding?: string) => Promise<string>;
   export const access: (path: string) => Promise<void>;
+  export const mkdir: (path: string, options?: { recursive?: boolean }) => Promise<void>;
+  export const writeFile: (
+    path: string,
+    data: string | Uint8Array,
+    encoding?: string,
+  ) => Promise<void>;
+}
+
+declare module 'node:crypto' {
+  export interface Hash {
+    update: (data: string | Uint8Array) => Hash;
+    digest: (encoding: 'hex') => string;
+  }
+  export const createHash: (algorithm: string) => Hash;
+}
+
+declare module 'node:path' {
+  const path: {
+    join: (...parts: string[]) => string;
+    posix: { join: (...parts: string[]) => string };
+  };
+  export default path;
 }
 
 declare module 'node:url' {

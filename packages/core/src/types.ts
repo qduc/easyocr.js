@@ -1,10 +1,10 @@
-export type ChannelOrder = 'rgb' | 'rgba' | 'bgr' | 'bgra';
+export type ChannelOrder = 'rgb' | 'rgba' | 'bgr' | 'bgra' | 'gray';
 
 export interface RasterImage {
   data: Uint8Array;
   width: number;
   height: number;
-  channels: 3 | 4;
+  channels: 1 | 3 | 4;
   channelOrder: ChannelOrder;
 }
 
@@ -99,7 +99,7 @@ export const DEFAULT_OCR_OPTIONS: OcrOptions = {
   adjustContrast: 0.5,
   decoder: 'greedy',
   recognizer: {
-    inputHeight: 32,
+    inputHeight: 64,
     inputWidth: 100,
     inputChannels: 1,
     mean: 0.5,

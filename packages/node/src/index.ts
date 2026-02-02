@@ -1,4 +1,5 @@
 export * from '@easyocrjs/core';
+export * from './trace.js';
 
 import type {
   DetectorModel,
@@ -43,6 +44,27 @@ export const loadImage = async (
     height: info.height,
     channels: 3,
     channelOrder,
+  };
+};
+
+export const loadGrayscaleImage = async (input: NodeImageInput): Promise<RasterImage> => {
+  const image =
+    typeof input === 'string'
+      ? sharp(input).toColourspace('b-w').removeAlpha().raw()
+      : sharp(Buffer.from(input instanceof Uint8Array ? input : new Uint8Array(input)))
+          .toColourspace('b-w')
+          .removeAlpha()
+          .raw();
+  const { data, info } = await image.toBuffer({ resolveWithObject: true });
+  if (info.channels !== 1) {
+    throw new Error(`Expected 1 channel for grayscale image, got ${info.channels}`);
+  }
+  return {
+    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    width: info.width,
+    height: info.height,
+    channels: 1,
+    channelOrder: 'gray',
   };
 };
 
