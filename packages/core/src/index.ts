@@ -1,4 +1,4 @@
-export const version = '0.1.1';
+export const version = '0.1.2';
 
 export * from './types.js';
 export * from './detector.js';
