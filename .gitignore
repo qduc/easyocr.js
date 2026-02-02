@@ -32,5 +32,6 @@ python_reference/out/
 
 *.pth
 *.onnx*
+!models/onnx/*.onnx
 
 tmp/
