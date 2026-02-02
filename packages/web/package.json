@@ -10,7 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@easyocrjs/core": "*"
+    "@easyocrjs/core": "*",
+    "onnxruntime-web": "^1.23.2"
   },
   "devDependencies": {
     "vitest": "^1.0.0"
