@@ -7,6 +7,7 @@ const argv = process.argv.slice(2);
 let imageArg = null;
 let traceDir = null;
 let langs = [];
+let useGpu = false;
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
   if (arg === '--trace-dir') {
@@ -18,6 +19,10 @@ for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i + 1] ?? '';
     langs = value.split(',').map((lang) => lang.trim()).filter(Boolean);
     i += 1;
+    continue;
+  }
+  if (arg === '--gpu') {
+    useGpu = true;
     continue;
   }
   if (!arg.startsWith('-') && imageArg === null) {
@@ -59,10 +64,12 @@ const main = async () => {
   const image = await easyocr.loadImage(imagePath);
   const recognitionImage =
     typeof easyocr.loadGrayscaleImage === 'function' ? await easyocr.loadGrayscaleImage(imagePath) : undefined;
-  const detector = await easyocr.loadDetectorModel(detectorPath);
+  const sessionOptions = useGpu ? { executionProviders: ['cuda', 'coreml', 'cpu'] } : undefined;
+  const detector = await easyocr.loadDetectorModel(detectorPath, { sessionOptions });
   const recognizer = await easyocr.loadRecognizerModel(recognizerPath, {
     charset,
     textInputName: 'text',
+    sessionOptions,
   });
   const trace =
     traceDir && typeof easyocr.createFsTraceWriter === 'function'

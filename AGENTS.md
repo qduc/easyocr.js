@@ -15,7 +15,6 @@ This repo is a small Bun-workspaces monorepo for a JavaScript/TypeScript port of
 - `python_reference/EasyOCR/`: original EasyOCR code for reference (copied from EasyOCR repo; do not edit here)
 - `packages/*/dist/`: per-package build output (generated; ignored by git)
 - `PIPELINE_CONTRACT.md`, `OVERVIEW_PLAN.md`: high-level architecture and pipeline notes
-- `DEBUG_README.md`, `DEBUGGING_CHECKLIST.md`, `HANDOFF_ONNX_DEBUGGING.md`: debugging notes and handoff docs
 
 ## Build, Test, and Development Commands
 
@@ -49,6 +48,10 @@ For python environment, we use uv, create an venv in project root:
 - Test locations: `packages/*/test/*.test.ts`.
 - Note: `packages/cli` currently has no real tests (its `test` script is a placeholder).
 - Add/adjust tests with behavior changes; there is no enforced coverage threshold in this repo today.
+
+## Debugging Accuracy Drifts Against Python Reference
+
+See `python_reference/validation/README.md` for detailed instructions on generating and diffing traces between the Python EasyOCR and this JS port.
 
 ## Model Export (Python)
 

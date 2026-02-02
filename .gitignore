@@ -32,3 +32,5 @@ python_reference/out/
 
 *.pth
 *.onnx*
+
+tmp/
