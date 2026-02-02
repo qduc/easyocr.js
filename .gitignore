@@ -29,3 +29,6 @@ python_reference/out/
 # Bun local/cache dirs (if you set BUN_INSTALL/CACHE locally)
 .bun/
 .bun-cache/
+
+*.pth
+*.onnx*

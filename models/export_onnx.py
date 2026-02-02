@@ -210,10 +210,15 @@ def validate_onnx(
     session = ort.InferenceSession(str(onnx_path), providers=['CPUExecutionProvider'])
     inputs = normalize_inputs(dummy_inputs)
     session_inputs = session.get_inputs()
-    if len(session_inputs) != len(inputs):
-        print(f'{name}: input count mismatch ({len(inputs)} vs {len(session_inputs)})')
+    if len(session_inputs) > len(inputs):
+        print(f'{name}: input count mismatch (expected at least {len(session_inputs)}, got {len(inputs)})')
         return False
-    feeds = {session_input.name: tensor.cpu().numpy() for session_input, tensor in zip(session_inputs, inputs)}
+
+    # Only use the number of inputs expected by the model
+    feeds = {
+        session_input.name: inputs[idx].cpu().numpy()
+        for idx, session_input in enumerate(session_inputs)
+    }
     ort_outputs = session.run(None, feeds)
 
     if len(ort_outputs) != len(torch_outputs):
