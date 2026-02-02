@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "package": "@qduc/easyocr-core",
-  "packageVersion": "0.1.2",
-  "generatedAt": "2026-02-02T17:55:53.747Z",
+  "packageVersion": "0.1.3",
+  "generatedAt": "2026-02-02T18:35:36.186Z",
   "models": [
     {
       "modelName": "craft_mlt_25k",
