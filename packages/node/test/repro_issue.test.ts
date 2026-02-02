@@ -12,7 +12,7 @@ import {
   ctcGreedyDecode, 
   recognizerPreprocess,
   DEFAULT_OCR_OPTIONS
-} from '@easyocrjs/core';
+} from '@qduc/easyocr-core';
 import { readFile } from 'node:fs/promises';
 import fs from 'node:fs';
 import path from 'node:path';

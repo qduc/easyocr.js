@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { version } from '@easyocrjs/node';
+import { version } from '@qduc/easyocr-node';
 
 const program = new Command();
 

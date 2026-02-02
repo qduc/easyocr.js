@@ -10,8 +10,8 @@
     "benchmarks/*"
   ],
   "scripts": {
-    "test": "bun run -F @easyocrjs/core test && bun run -F @easyocrjs/node test && bun run -F @easyocrjs/web test && bun run -F @easyocrjs/cli test",
-    "build": "bun run -F @easyocrjs/core build && bun run -F @easyocrjs/node build && bun run -F @easyocrjs/web build && bun run -F @easyocrjs/cli build"
+    "test": "bun run -F @qduc/easyocr-core test && bun run -F @qduc/easyocr-node test && bun run -F @qduc/easyocr-web test && bun run -F @qduc/easyocr-cli test",
+    "build": "bun run -F @qduc/easyocr-core build && bun run -F @qduc/easyocr-node build && bun run -F @qduc/easyocr-web build && bun run -F @qduc/easyocr-cli build"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

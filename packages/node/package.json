@@ -1,16 +1,23 @@
 {
-  "name": "@easyocrjs/node",
+  "name": "@qduc/easyocr-node",
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.0.1",
   "description": "Node.js runtime for easyocr.js",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run"
   },
   "dependencies": {
-    "@easyocrjs/core": "*",
+    "@qduc/easyocr-core": "^0.0.1",
     "onnxruntime-node": "^1.20.0",
     "sharp": "^0.34.0"
   },
@@ -18,5 +25,14 @@
     "@types/node": "^20.0.0",
     "vitest": "^1.0.0"
   },
-  "license": "Apache-2.0"
+  "author": "qduc",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qduc/easyocr.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qduc/easyocr.js/issues"
+  },
+  "homepage": "https://github.com/qduc/easyocr.js#readme"
 }

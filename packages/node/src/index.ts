@@ -1,7 +1,7 @@
-export * from '@easyocrjs/core';
+export * from '@qduc/easyocr-core';
 export * from './trace.js';
 
-import { guessModel, recognize } from '@easyocrjs/core';
+import { guessModel, recognize } from '@qduc/easyocr-core';
 import type {
   DetectorModel,
   InferenceRunner,
@@ -11,7 +11,7 @@ import type {
   RecognizerModel,
   Tensor,
   TensorType,
-} from '@easyocrjs/core';
+} from '@qduc/easyocr-core';
 import { access, mkdir, writeFile, readFile } from 'node:fs/promises';
 import * as nodePath from 'node:path';
 import sharp from 'sharp';

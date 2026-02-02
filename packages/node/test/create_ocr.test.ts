@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createOCR } from '../src/index';
-import type { DetectorModel, InferenceRunner, RecognizerModel, Tensor } from '@easyocrjs/core';
+import type { DetectorModel, InferenceRunner, RecognizerModel, Tensor } from '@qduc/easyocr-core';
 
 const makeDetector = (): DetectorModel => {
   const runner: InferenceRunner = {

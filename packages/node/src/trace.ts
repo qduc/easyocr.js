@@ -1,4 +1,4 @@
-import type { Box, RasterImage, Tensor, TraceStepInput, TraceWriter } from '@easyocrjs/core';
+import type { Box, RasterImage, Tensor, TraceStepInput, TraceWriter } from '@qduc/easyocr-core';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';

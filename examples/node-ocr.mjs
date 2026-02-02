@@ -1,6 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import * as easyocr from '../packages/node/dist/index.js';
+import * as easyocr from '@qduc/easyocr-node';
 
 const repoRoot = new URL('..', import.meta.url);
 const argv = process.argv.slice(2);

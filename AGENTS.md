@@ -4,10 +4,10 @@
 
 This repo is a small Bun-workspaces monorepo for a JavaScript/TypeScript port of EasyOCR.
 
-- `packages/core/`: shared types and pipeline primitives (published as `@easyocrjs/core`)
-- `packages/node/`: Node.js runtime wrapper (published as `@easyocrjs/node`)
-- `packages/web/`: browser runtime wrapper (published as `@easyocrjs/web`; currently mostly a re-export of core)
-- `packages/cli/`: CLI entrypoint (published as `@easyocrjs/cli`, binary: `easyocr`)
+- `packages/core/`: shared types and pipeline primitives (published as `@qduc/easyocr-core`)
+- `packages/node/`: Node.js runtime wrapper (published as `@qduc/easyocr-node`)
+- `packages/web/`: browser runtime wrapper (published as `@qduc/easyocr-web`; currently mostly a re-export of core)
+- `packages/cli/`: CLI entrypoint (published as `@qduc/easyocr-cli`, binary: `easyocr`)
 - `examples/`: runnable sample usage
 - `benchmarks/`: performance experiments (optional; may not exist in every checkout)
 - `models/`: model assets + export scripts (do not edit weights unless you are intentionally updating them)
@@ -26,8 +26,8 @@ From repo root:
 
 Target a single workspace when iterating:
 
-- `bun run -F @easyocrjs/node test`
-- `bun run -F @easyocrjs/web build`
+- `bun run -F @qduc/easyocr-node test`
+- `bun run -F @qduc/easyocr-web build`
 
 For python environment, we use uv, create an venv in project root:
 
@@ -39,7 +39,7 @@ For python environment, we use uv, create an venv in project root:
 
 - Language: TypeScript, ESM (`"type": "module"`).
 - Formatting: follow existing code (2-space indent, semicolons, single quotes).
-- Naming: packages use `@easyocrjs/*`; tests use `*.test.ts`.
+- Naming: packages use `@qduc/easyocr-*`; tests use `*.test.ts`.
 - Avoid committing generated artifacts unless the repo explicitly expects them (prefer source-only changes + rebuild), especially `packages/*/dist/` and `models/onnx/`.
 
 ## Testing Guidelines

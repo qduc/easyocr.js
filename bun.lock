@@ -10,28 +10,28 @@
       },
     },
     "packages/cli": {
-      "name": "@easyocrjs/cli",
+      "name": "@qduc/easyocr-cli",
       "version": "0.0.1",
       "bin": {
         "easyocr": "dist/cli.js",
       },
       "dependencies": {
-        "@easyocrjs/node": "*",
+        "@qduc/easyocr-node": "*",
         "commander": "^11.0.0",
       },
     },
     "packages/core": {
-      "name": "@easyocrjs/core",
+      "name": "@qduc/easyocr-core",
       "version": "0.0.1",
       "devDependencies": {
         "vitest": "^1.0.0",
       },
     },
     "packages/node": {
-      "name": "@easyocrjs/node",
+      "name": "@qduc/easyocr-node",
       "version": "0.0.1",
       "dependencies": {
-        "@easyocrjs/core": "*",
+        "@qduc/easyocr-core": "*",
         "onnxruntime-node": "^1.20.0",
         "sharp": "^0.34.0",
       },
@@ -41,10 +41,10 @@
       },
     },
     "packages/web": {
-      "name": "@easyocrjs/web",
+      "name": "@qduc/easyocr-web",
       "version": "0.0.1",
       "dependencies": {
-        "@easyocrjs/core": "*",
+        "@qduc/easyocr-core": "*",
         "onnxruntime-web": "^1.23.2",
       },
       "devDependencies": {
@@ -53,14 +53,6 @@
     },
   },
   "packages": {
-    "@easyocrjs/cli": ["@easyocrjs/cli@workspace:packages/cli"],
-
-    "@easyocrjs/core": ["@easyocrjs/core@workspace:packages/core"],
-
-    "@easyocrjs/node": ["@easyocrjs/node@workspace:packages/node"],
-
-    "@easyocrjs/web": ["@easyocrjs/web@workspace:packages/web"],
-
     "@emnapi/runtime": ["@emnapi/runtime@1.8.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.21.5", "", { "os": "aix", "cpu": "ppc64" }, "sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ=="],
@@ -182,6 +174,14 @@
     "@protobufjs/pool": ["@protobufjs/pool@1.1.0", "", {}, "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw=="],
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.0", "", {}, "sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw=="],
+
+    "@qduc/easyocr-cli": ["@qduc/easyocr-cli@workspace:packages/cli"],
+
+    "@qduc/easyocr-core": ["@qduc/easyocr-core@workspace:packages/core"],
+
+    "@qduc/easyocr-node": ["@qduc/easyocr-node@workspace:packages/node"],
+
+    "@qduc/easyocr-web": ["@qduc/easyocr-web@workspace:packages/web"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.57.1", "", { "os": "android", "cpu": "arm" }, "sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg=="],
 

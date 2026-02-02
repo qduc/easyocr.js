@@ -1,4 +1,4 @@
-export * from '@easyocrjs/core';
+export * from '@qduc/easyocr-core';
 
 import type {
   DetectorModel,
@@ -7,7 +7,7 @@ import type {
   RecognizerModel,
   Tensor,
   TensorType,
-} from '@easyocrjs/core';
+} from '@qduc/easyocr-core';
 import type * as ort from 'onnxruntime-web';
 
 type OrtModule = typeof import('onnxruntime-web');

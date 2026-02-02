@@ -25,7 +25,7 @@
    * Implement: image normalization → detector inference → box/polygon postprocess → crop/warp → recognizer inference → decode → final results.
    * Keep model inference abstract so Node and Browser can share most logic.
    * Plan (breakdown):
-     1. Define core public API in `@easyocrjs/core`
+     1. Define core public API in `@qduc/easyocr-core`
         - Types: `Point`, `Box`, `OcrResult`, `OcrOptions` (mirror Python defaults captured in `PIPELINE_CONTRACT.md`)
         - Runtime-agnostic image type: decoded raster + channel order metadata
         - Runtime-agnostic inference interface: `run(feeds) -> outputs` for detector + recognizer

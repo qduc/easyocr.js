@@ -1,6 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { guessModel, loadDetectorModel, loadImage, loadRecognizerModel, recognize } from '../packages/node/src/index.ts';
+import { guessModel, loadDetectorModel, loadImage, loadRecognizerModel, recognize } from '@qduc/easyocr-node';
 
 const repoRoot = new URL('..', import.meta.url);
 const args = process.argv.slice(2);

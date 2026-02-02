@@ -1,10 +1,17 @@
 {
-  "name": "@easyocrjs/core",
+  "name": "@qduc/easyocr-core",
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.0.1",
   "description": "Core logic for easyocr.js",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run"
@@ -14,8 +21,16 @@
     "easyocr",
     "vision"
   ],
-  "author": "",
+  "author": "qduc",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qduc/easyocr.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qduc/easyocr.js/issues"
+  },
+  "homepage": "https://github.com/qduc/easyocr.js#readme",
   "devDependencies": {
     "vitest": "^1.0.0"
   }

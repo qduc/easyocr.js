@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   resolve: {
     alias: {
-      '@easyocrjs/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
+      '@qduc/easyocr-core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
     },
   },
   test: {

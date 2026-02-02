@@ -17,9 +17,9 @@ A JavaScript port of [EasyOCR](https://github.com/JaidedAI/EasyOCR) for Node.js 
 
 ### Understanding the Package Structure
 
-- **`@easyocrjs/core`**: Shared types, pipeline logic, and image processing (required for all runtimes)
-- **`@easyocrjs/node`**: Node.js runtime implementations using `sharp` for images and `onnxruntime-node` for inference
-- **`@easyocrjs/web`**: Browser runtime implementations using Canvas APIs and `onnxruntime-web`
+- **`@qduc/easyocr-core`**: Shared types, pipeline logic, and image processing (required for all runtimes)
+- **`@qduc/easyocr-node`**: Node.js runtime implementations using `sharp` for images and `onnxruntime-node` for inference
+- **`@qduc/easyocr-web`**: Browser runtime implementations using Canvas APIs and `onnxruntime-web`
 
 **When to use each:**
 - Use **Node.js** for server-side OCR, CLI tools, or desktop applications with Node.js
@@ -28,11 +28,11 @@ A JavaScript port of [EasyOCR](https://github.com/JaidedAI/EasyOCR) for Node.js 
 ### Node.js
 
 ```bash
-npm install @easyocrjs/node @easyocrjs/core
+npm install @qduc/easyocr-node @qduc/easyocr-core
 # or
-yarn add @easyocrjs/node @easyocrjs/core
+yarn add @qduc/easyocr-node @qduc/easyocr-core
 # or
-bun add @easyocrjs/node @easyocrjs/core
+bun add @qduc/easyocr-node @qduc/easyocr-core
 ```
 
 **Requirements:**
@@ -42,7 +42,7 @@ bun add @easyocrjs/node @easyocrjs/core
 ### Browser
 
 ```bash
-npm install @easyocrjs/web @easyocrjs/core
+npm install @qduc/easyocr-web @qduc/easyocr-core
 ```
 
 > **Note**: For browser usage, you need to host or point to the `onnxruntime-web` WASM files. See [Browser Integration](#browser-integration) for details.
@@ -52,7 +52,7 @@ npm install @easyocrjs/web @easyocrjs/core
 ### Basic Usage (Simplified)
 
 ```typescript
-import { createOCR } from '@easyocrjs/node';
+import { createOCR } from '@qduc/easyocr-node';
 
 async function run() {
   const ocr = await createOCR({
@@ -81,7 +81,7 @@ import {
   loadRecognizerModel,
   recognize,
   loadCharset
-} from '@easyocrjs/node';
+} from '@qduc/easyocr-node';
 
 async function run() {
   // 1. Load your image (PNG, JPG, etc.)
@@ -189,7 +189,7 @@ async function processMultiple(imagePaths: string[]) {
 ### Error Handling
 
 ```typescript
-import type { OcrResult } from '@easyocrjs/core';
+import type { OcrResult } from '@qduc/easyocr-core';
 
 try {
   const image = await loadImage('image.png');
@@ -222,12 +222,12 @@ Each `OcrResult` contains:
 
 ### Setup (React/Vue/Svelte example)
 
-When using `@easyocrjs/web`, you need to handle WASM paths and runtime differences.
+When using `@qduc/easyocr-web`, you need to handle WASM paths and runtime differences.
 
 ```typescript
 import * as ort from 'onnxruntime-web';
-import { loadImage, recognize } from '@easyocrjs/web';
-import type { RasterImage, OcrResult } from '@easyocrjs/core';
+import { loadImage, recognize } from '@qduc/easyocr-web';
+import type { RasterImage, OcrResult } from '@qduc/easyocr-core';
 
 // Configure WASM path (choose one method):
 // Method 1: Using CDN
@@ -280,7 +280,7 @@ project/
 
 **1. Automatic Download (Node.js only)**
 
-`@easyocrjs/node` will automatically download missing models from GitHub Releases on first use:
+`@qduc/easyocr-node` will automatically download missing models from GitHub Releases on first use:
 
 ```typescript
 // This will download models/onnx/craft_mlt_25k.onnx if not found locally
@@ -347,7 +347,7 @@ import type {
   OcrOptions,      // Recognition options
   Box,             // 4-point polygon coordinates
   Point,           // [x, y] coordinate
-} from '@easyocrjs/core';
+} from '@qduc/easyocr-core';
 ```
 
 See [packages/core/src/types.ts](packages/core/src/types.ts) for full type definitions.
@@ -372,14 +372,14 @@ bun run test
 ### Working on a Single Package
 
 ```bash
-# Build only @easyocrjs/node
-bun run -F @easyocrjs/node build
+# Build only @qduc/easyocr-node
+bun run -F @qduc/easyocr-node build
 
-# Test only @easyocrjs/core
-bun run -F @easyocrjs/core test
+# Test only @qduc/easyocr-core
+bun run -F @qduc/easyocr-core test
 
 # Run the CLI
-bun run -F @easyocrjs/cli easyocr image.png
+bun run -F @qduc/easyocr-cli easyocr image.png
 ```
 
 ### Running Examples
@@ -422,9 +422,9 @@ See [python_reference/validation/README.md](python_reference/validation/README.m
 
 ## FAQ
 
-**Q: Why do I need both `@easyocrjs/core` and `@easyocrjs/node` (or `@easyocrjs/web`)?**
+**Q: Why do I need both `@qduc/easyocr-core` and `@qduc/easyocr-node` (or `@qduc/easyocr-web`)?**
 
-A: `@easyocrjs/core` contains the shared types and pipeline logic (runtime-agnostic). The node/web packages provide runtime-specific implementations for loading images and running inference.
+A: `@qduc/easyocr-core` contains the shared types and pipeline logic (runtime-agnostic). The node/web packages provide runtime-specific implementations for loading images and running inference.
 
 **Q: Can I use this in production?**
 
