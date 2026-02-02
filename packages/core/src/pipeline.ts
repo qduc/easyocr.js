@@ -10,6 +10,7 @@ import type {
 import { buildCrops } from './crop.js';
 import { detectorPostprocessDebug, detectorPreprocess, tensorToHeatmap } from './detector.js';
 import { ctcGreedyDecode, recognizerPreprocess } from './recognizer.js';
+import { mergeOcrResultsByLine } from './postprocess.js';
 import { resolveOcrOptions } from './types.js';
 import type { TraceWriter } from './trace.js';
 import { traceStep } from './trace.js';
@@ -29,6 +30,7 @@ interface RecognitionCrop {
   box: Box;
   text: string;
   confidence: number;
+  rotation: number;
 }
 
 const ensureTensor = (tensor?: Tensor): Tensor => {
@@ -270,12 +272,53 @@ export const recognize = async ({
       recognizer.blankIndex ?? 0,
       ignoreIndices,
     );
-    results.push({ box: crop.box, text: decoded.text, confidence: decoded.confidence });
+    results.push({
+      box: crop.box,
+      text: decoded.text,
+      confidence: decoded.confidence,
+      rotation: crop.rotation,
+    });
   }
 
-  return results.map((result) => ({
+  const rawResults = results.map((result) => ({
     box: result.box,
     text: result.text,
     confidence: result.confidence,
   }));
+  await traceStep(trace, {
+    name: 'recognizer_results_pre_merge',
+    kind: 'boxes',
+    boxes: rawResults.map((r) => r.box),
+  });
+
+  if (!resolved.mergeLines) {
+    return rawResults;
+  }
+
+  const rotationOrder: number[] = [];
+  const byRotation = new Map<number, OcrResult[]>();
+  for (const result of results) {
+    if (!byRotation.has(result.rotation)) {
+      byRotation.set(result.rotation, []);
+      rotationOrder.push(result.rotation);
+    }
+    byRotation.get(result.rotation)?.push({
+      box: result.box,
+      text: result.text,
+      confidence: result.confidence,
+    });
+  }
+
+  const merged = rotationOrder.flatMap((rotation) => {
+    const group = byRotation.get(rotation) ?? [];
+    return mergeOcrResultsByLine(group, resolved);
+  });
+
+  await traceStep(trace, {
+    name: 'recognizer_results_post_merge',
+    kind: 'boxes',
+    boxes: merged.map((r) => r.box),
+  });
+
+  return merged;
 };

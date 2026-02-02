@@ -36,7 +36,7 @@ describe('Recognition Discrepancy Repro', () => {
     const charset = await loadCharset(charsetPath);
     const recognizer = await loadRecognizerModel(recognizerPath, { charset });
 
-    const results = await recognize({ image, recognitionImage, detector, recognizer });
+    const results = await recognize({ image, recognitionImage, detector, recognizer, options: { mergeLines: false } });
     const expected = JSON.parse(await readFile(expectedPath, 'utf8'));
 
     expect(results.length).toBe(expected.results.length);

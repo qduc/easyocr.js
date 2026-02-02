@@ -64,6 +64,8 @@ export interface OcrOptions {
   paragraph: boolean;
   xThs: number;
   yThs: number;
+  mergeLines: boolean;
+  maxAngleDeg: number;
   rotationInfo: number[];
   contrastThs: number;
   adjustContrast: number;
@@ -98,6 +100,8 @@ export const DEFAULT_OCR_OPTIONS: OcrOptions = {
   paragraph: false,
   xThs: 1.0,
   yThs: 0.5,
+  mergeLines: true,
+  maxAngleDeg: 10,
   rotationInfo: [],
   contrastThs: 0.1,
   adjustContrast: 0.5,
