@@ -484,6 +484,31 @@ export interface RecognizerModelOptions extends LoadSessionOptions {
   blankIndex?: number;
 }
 
+const resolveRecognizerTextInputName = (
+  session: ort.InferenceSession,
+  imageInputName: string,
+  configured?: string,
+): string | undefined => {
+  const inputNames = session.inputNames ?? [];
+  const others = inputNames.filter((n) => n && n !== imageInputName);
+
+  if (configured) {
+    if (configured !== imageInputName && inputNames.includes(configured)) return configured;
+    const ci = others.find((n) => n.toLowerCase() === configured.toLowerCase());
+    if (ci) return ci;
+  }
+
+  if (others.length === 1) return others[0];
+
+  const preferred = ['text', 'text_input', 'textinput', 'input_text', 'tokens'];
+  for (const candidate of preferred) {
+    const hit = others.find((n) => n.toLowerCase() === candidate);
+    if (hit) return hit;
+  }
+
+  return undefined;
+};
+
 export const loadRecognizerModel = async (
   model: string | Uint8Array | ArrayBuffer,
   options: RecognizerModelOptions,
@@ -498,11 +523,13 @@ export const loadRecognizerModel = async (
   if (!options.charset) {
     throw new Error('Recognizer charset is required.');
   }
+
+  const textInputName = resolveRecognizerTextInputName(session, inputName, options.textInputName);
   return {
-    session: new RecognizerRunner(ortRuntime, session, options.textInputName),
+    session: new RecognizerRunner(ortRuntime, session, textInputName),
     inputName,
     outputName,
-    textInputName: options.textInputName,
+    textInputName,
     charset: options.charset,
     symbols: options.symbols,
     blankIndex: options.blankIndex,

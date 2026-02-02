@@ -9,7 +9,7 @@ export interface SupportedLanguage {
 export interface ResolvedModel {
   model: string;
   charset: string;
-  textInputName: string;
+  textInputName?: string;
 }
 
 const LANGUAGE_ALIASES: Record<string, string> = {
@@ -61,7 +61,6 @@ export const resolveModelForLanguage = (lang: string): ResolvedModel => {
   return {
     model,
     charset: `${model}.charset.txt`,
-    textInputName: 'text',
   };
 };
 

@@ -3,6 +3,6 @@ import { version } from '../src/index';
 
 describe('easyocr-js node', () => {
   it('should export version from core', () => {
-    expect(version).toBe('0.1.0');
+    expect(version).toBe('0.1.1');
   });
 });

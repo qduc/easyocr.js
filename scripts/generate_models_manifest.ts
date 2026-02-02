@@ -58,7 +58,6 @@ const main = async () => {
       languages: ['en'],
       charsetFile: 'english_g2.charset.txt',
       onnxFile: 'onnx/english_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'latin_g2',
@@ -71,7 +70,6 @@ const main = async () => {
       ],
       charsetFile: 'latin_g2.charset.txt',
       onnxFile: 'onnx/latin_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'cyrillic_g2',
@@ -82,7 +80,6 @@ const main = async () => {
       ],
       charsetFile: 'cyrillic_g2.charset.txt',
       onnxFile: 'onnx/cyrillic_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'japanese_g2',
@@ -90,7 +87,6 @@ const main = async () => {
       languages: ['ja'],
       charsetFile: 'japanese_g2.charset.txt',
       onnxFile: 'onnx/japanese_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'korean_g2',
@@ -98,7 +94,6 @@ const main = async () => {
       languages: ['ko'],
       charsetFile: 'korean_g2.charset.txt',
       onnxFile: 'onnx/korean_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'zh_sim_g2',
@@ -106,7 +101,6 @@ const main = async () => {
       languages: ['ch_sim'],
       charsetFile: 'zh_sim_g2.charset.txt',
       onnxFile: 'onnx/zh_sim_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'telugu_g2',
@@ -114,7 +108,6 @@ const main = async () => {
       languages: ['te'],
       charsetFile: 'telugu_g2.charset.txt',
       onnxFile: 'onnx/telugu_g2.onnx',
-      textInputName: 'text',
     },
     {
       modelName: 'kannada_g2',
@@ -122,7 +115,6 @@ const main = async () => {
       languages: ['kn'],
       charsetFile: 'kannada_g2.charset.txt',
       onnxFile: 'onnx/kannada_g2.onnx',
-      textInputName: 'text',
     },
   ];
 

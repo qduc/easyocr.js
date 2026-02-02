@@ -63,7 +63,6 @@ const main = async () => {
   const detector = await loadDetectorModel(detectorPath);
   const recognizer = await loadRecognizerModel(recognizerPath, {
     charset,
-    textInputName: 'text',
   });
   const results = await recognize({
     image,

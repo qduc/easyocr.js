@@ -3,7 +3,7 @@ import { version, loadImage, loadDetectorModel, loadRecognizerModel, loadCharset
 
 describe('easyocr-js web', () => {
   it('should export version from core', () => {
-    expect(version).toBe('0.1.0');
+    expect(version).toBe('0.1.1');
   });
 
   it('should provide a default, CORS-safe model base URL', () => {

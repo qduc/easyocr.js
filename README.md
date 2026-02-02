@@ -97,7 +97,7 @@ async function run() {
   const charset = await loadCharset('models/english_g2.charset.txt');
   const recognizer = await loadRecognizerModel('models/onnx/english_g2.onnx', {
     charset,
-    textInputName: 'text', // Required for g2 models
+    // textInputName is optional; most current recognizer ONNX exports only have a single image input.
   });
 
   // 4. Run OCR
@@ -133,14 +133,14 @@ To recognize text in a different language manually, load the corresponding model
 const charset = await loadCharset('models/zh_sim_g2.charset.txt');
 const recognizer = await loadRecognizerModel('models/onnx/zh_sim_g2.onnx', {
   charset,
-  textInputName: 'text',
+  // textInputName: '...', // optional (only if the ONNX model exposes a second "text"/token input)
 });
 
 // For Japanese
 const charset = await loadCharset('models/japanese_g2.charset.txt');
 const recognizer = await loadRecognizerModel('models/onnx/japanese_g2.onnx', {
   charset,
-  textInputName: 'text',
+  // textInputName: '...', // optional
 });
 
 // See Supported Models section for all available languages
@@ -174,7 +174,7 @@ async function processMultiple(imagePaths: string[]) {
   const charset = await loadCharset('models/english_g2.charset.txt');
   const recognizer = await loadRecognizerModel('models/onnx/english_g2.onnx', {
     charset,
-    textInputName: 'text',
+    // textInputName: '...', // optional
   });
 
   // Process images sequentially (for parallelism, use Promise.all with caution on memory)
@@ -289,7 +289,7 @@ const supported = getSupportedLanguages();
 
 // 2) Resolve the right model + charset for a language code (aliases supported)
 const resolved = resolveModelForLanguage('zh-cn');
-// => { model: 'zh_sim_g2', charset: 'zh_sim_g2.charset.txt', textInputName: 'text' }
+// => { model: 'zh_sim_g2', charset: 'zh_sim_g2.charset.txt' }
 ```
 
 ### Where Models Go

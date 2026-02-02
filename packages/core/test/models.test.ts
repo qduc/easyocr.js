@@ -11,11 +11,12 @@ describe('models helpers', () => {
   });
 
   it('resolves model + charset for a language', () => {
-    expect(resolveModelForLanguage('en')).toEqual({
+    const resolved = resolveModelForLanguage('en');
+    expect(resolved).toEqual({
       model: 'english_g2',
       charset: 'english_g2.charset.txt',
-      textInputName: 'text',
     });
+    expect(resolved).not.toHaveProperty('textInputName');
     expect(resolveModelForLanguage('zh-cn').model).toBe('zh_sim_g2');
     expect(resolveModelForLanguage('jp').model).toBe('japanese_g2');
   });
