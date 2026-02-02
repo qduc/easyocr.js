@@ -60,7 +60,7 @@
      10. Add end-to-end parity harness hooks (without binding to Node/Web)
         - Consume a reference JSON sample and compare output within tolerances (wired up in step 7)
 
-6. **Implement runtimes**
+6. **Implement runtimes** (DONE: 2026-02-02)
 
    * **Node**: `onnxruntime-node` + `sharp` (and OpenCV only if needed).
    * **Web**: `onnxruntime-web` (WebGPU/WASM) + Canvas / OpenCV.js; run inference in **WebWorkers**.
