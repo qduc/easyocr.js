@@ -1,9 +1,12 @@
 export * from '@easyocrjs/core';
 export * from './trace.js';
 
+import { guessModel, recognize } from '@easyocrjs/core';
 import type {
   DetectorModel,
   InferenceRunner,
+  OcrOptions,
+  OcrResult,
   RasterImage,
   RecognizerModel,
   Tensor,
@@ -332,5 +335,119 @@ export const loadRecognizerModel = async (
     charset: options.charset,
     symbols: options.symbols,
     blankIndex: options.blankIndex,
+  };
+};
+
+export type OCRImageInput = NodeImageInput | RasterImage;
+
+export interface OCRInstance {
+  read(image: OCRImageInput, options?: Partial<OcrOptions>): Promise<OcrResult[]>;
+}
+
+export interface CreateOCROptions {
+  modelDir: string;
+  lang?: string;
+  langs?: string[];
+  detector?: DetectorModel;
+  recognizer?: RecognizerModel;
+  detectorModelPath?: string;
+  recognizerModelPath?: string;
+  charsetPath?: string;
+  detectorOptions?: DetectorModelOptions;
+  recognizerOptions?: Omit<RecognizerModelOptions, 'charset'>;
+  sessionOptions?: LoadSessionOptions['sessionOptions'];
+  ocrOptions?: Partial<OcrOptions>;
+}
+
+const mergeOcrOptions = (
+  base?: Partial<OcrOptions>,
+  override?: Partial<OcrOptions>,
+): Partial<OcrOptions> | undefined => {
+  if (!base && !override) return undefined;
+  const merged: Partial<OcrOptions> = {
+    ...base,
+    ...override,
+  };
+  if (base?.recognizer && override?.recognizer) {
+    merged.recognizer = { ...base.recognizer, ...override.recognizer };
+  } else if (base?.recognizer) {
+    merged.recognizer = base.recognizer;
+  } else if (override?.recognizer) {
+    merged.recognizer = override.recognizer;
+  }
+  return merged;
+};
+
+const normalizeLangs = (lang?: string, langs?: string[]): string[] => {
+  const normalized = [...(langs ?? [])];
+  if (lang && !normalized.includes(lang)) {
+    normalized.unshift(lang);
+  }
+  return normalized.length > 0 ? normalized : ['en'];
+};
+
+const isRasterImage = (input: OCRImageInput): input is RasterImage => {
+  if (!input || typeof input !== 'object') return false;
+  const candidate = input as RasterImage;
+  return (
+    candidate.data instanceof Uint8Array &&
+    typeof candidate.width === 'number' &&
+    typeof candidate.height === 'number' &&
+    typeof candidate.channels === 'number' &&
+    typeof candidate.channelOrder === 'string'
+  );
+};
+
+export const createOCR = async (options: CreateOCROptions): Promise<OCRInstance> => {
+  if (!options?.modelDir) {
+    throw new Error('createOCR requires a modelDir option.');
+  }
+
+  const langs = normalizeLangs(options.lang, options.langs);
+  const recognizerName = guessModel(langs);
+  const detectorModelPath =
+    options.detectorModelPath ??
+    nodePath.join(options.modelDir, 'onnx', 'craft_mlt_25k.onnx');
+  const recognizerModelPath =
+    options.recognizerModelPath ??
+    nodePath.join(options.modelDir, 'onnx', `${recognizerName}.onnx`);
+  const charsetPath =
+    options.charsetPath ??
+    nodePath.join(options.modelDir, `${recognizerName}.charset.txt`);
+
+  const sessionOptions = options.sessionOptions;
+  const detectorOptions = { sessionOptions, ...(options.detectorOptions ?? {}) };
+  const recognizerOptions = { sessionOptions, ...(options.recognizerOptions ?? {}) };
+
+  const detector =
+    options.detector ?? (await loadDetectorModel(detectorModelPath, detectorOptions));
+  const recognizer =
+    options.recognizer ??
+    (await (async () => {
+      const charset = await loadCharset(charsetPath);
+      return loadRecognizerModel(recognizerModelPath, {
+        ...recognizerOptions,
+        charset,
+      });
+    })());
+
+  const baseOcrOptions: Partial<OcrOptions> = {
+    ...(options.ocrOptions ?? {}),
+  };
+  if (!baseOcrOptions.langList) {
+    baseOcrOptions.langList = langs;
+  }
+
+  return {
+    async read(image: OCRImageInput, overrideOptions?: Partial<OcrOptions>) {
+      const raster = isRasterImage(image) ? image : await loadImage(image);
+      const mergedOptions = mergeOcrOptions(baseOcrOptions, overrideOptions);
+      return recognize({
+        image: raster,
+        detector,
+        recognizer,
+        options: mergedOptions,
+      });
+    },
   };
 };

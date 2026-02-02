@@ -49,7 +49,30 @@ npm install @easyocrjs/web @easyocrjs/core
 
 ## Quick Start (Node.js)
 
-### Basic Usage
+### Basic Usage (Simplified)
+
+```typescript
+import { createOCR } from '@easyocrjs/node';
+
+async function run() {
+  const ocr = await createOCR({
+    modelDir: './models',
+    lang: 'en', // or langs: ['en', 'ch_sim']
+  });
+
+  const results = await ocr.read('path/to/image.png');
+  for (const item of results) {
+    console.log(`Text: ${item.text}`);
+    console.log(`Confidence: ${(item.confidence * 100).toFixed(1)}%`);
+  }
+}
+
+run().catch(console.error);
+```
+
+> **Note**: `modelDir` must contain `onnx/` models and the matching `.charset.txt` files (see [Getting the Models](#getting-the-models)).
+
+### Advanced Usage (Manual Setup)
 
 ```typescript
 import {
@@ -97,7 +120,13 @@ run().catch(console.error);
 
 ### Using a Different Language
 
-To recognize text in a different language, simply load the corresponding model and charset:
+With `createOCR`, just pass the language(s) and the correct model is selected automatically:
+
+```typescript
+const ocr = await createOCR({ modelDir: './models', langs: ['en', 'ch_sim'] });
+```
+
+To recognize text in a different language manually, load the corresponding model and charset:
 
 ```typescript
 // For Chinese (Simplified)
