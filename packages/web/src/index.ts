@@ -64,11 +64,21 @@ export const fetchModel = async (url: string, options: FetchModelOptions = {}): 
           'Use media.githubusercontent.com (or a release asset with CORS) instead of raw.githubusercontent.com.',
       );
     }
-    return new TextEncoder().encode(text);
+    const reportedLength = contentLength > 0 ? `${contentLength}` : 'unknown';
+    const reportedType = contentType || 'unknown';
+    throw new Error(
+      `Unexpected model response from ${url}: content-type ${reportedType}, content-length ${reportedLength}. ` +
+        'Expected binary content (e.g. application/octet-stream).',
+    );
   }
 
-  const buffer = await response.arrayBuffer();
-  return new Uint8Array(buffer);
+  try {
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read model bytes from ${url}: ${message}`, { cause: error });
+  }
 };
 
 export type WebImageInput =
@@ -438,6 +448,11 @@ export const loadSession = async (
   return createSession(ortRuntime, model, options);
 };
 
+const wrapModelLoadError = (kind: 'detector' | 'recognizer', error: unknown): Error => {
+  const message = error instanceof Error ? error.message : String(error);
+  return new Error(`Failed to load ${kind} model: ${message}`, { cause: error });
+};
+
 export const loadCharset = async (path: string): Promise<string> => {
   if (typeof fetch === 'undefined') {
     throw new Error('fetch is unavailable in this environment.');
@@ -459,8 +474,14 @@ export const loadDetectorModel = async (
   model: string | Uint8Array | ArrayBuffer,
   options: DetectorModelOptions = {},
 ): Promise<DetectorModel> => {
-  const ortRuntime = await loadOrt();
-  const session = await createSession(ortRuntime, model, options);
+  let ortRuntime: OrtModule;
+  let session: ort.InferenceSession;
+  try {
+    ortRuntime = await loadOrt();
+    session = await createSession(ortRuntime, model, options);
+  } catch (error) {
+    throw wrapModelLoadError('detector', error);
+  }
   const inputName = options.inputName ?? session.inputNames[0];
   const textOutputName = options.textOutputName ?? 'text';
   const linkOutputName = options.linkOutputName ?? 'link';
@@ -513,8 +534,14 @@ export const loadRecognizerModel = async (
   model: string | Uint8Array | ArrayBuffer,
   options: RecognizerModelOptions,
 ): Promise<RecognizerModel> => {
-  const ortRuntime = await loadOrt();
-  const session = await createSession(ortRuntime, model, options);
+  let ortRuntime: OrtModule;
+  let session: ort.InferenceSession;
+  try {
+    ortRuntime = await loadOrt();
+    session = await createSession(ortRuntime, model, options);
+  } catch (error) {
+    throw wrapModelLoadError('recognizer', error);
+  }
   const inputName = options.inputName ?? session.inputNames[0];
   const outputName = options.outputName ?? session.outputNames[0];
   if (!inputName || !outputName) {

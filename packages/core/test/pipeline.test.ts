@@ -13,6 +13,19 @@ const makeImage = (width: number, height: number): RasterImage => {
   return { data, width, height, channels: 3, channelOrder: 'rgb' };
 };
 
+const makeImageWithChannels = (
+  width: number,
+  height: number,
+  channels: 1 | 3 | 4,
+  channelOrder: RasterImage['channelOrder'],
+): RasterImage => {
+  const data = new Uint8Array(width * height * channels);
+  for (let i = 0; i < width * height * channels; i += 1) {
+    data[i] = (i * 17) & 0xff;
+  }
+  return { data, width, height, channels, channelOrder };
+};
+
 describe('core pipeline stages', () => {
   it('preprocesses detector input with resizing and scaling', () => {
     const image = makeImage(200, 100);
@@ -41,6 +54,45 @@ describe('core pipeline stages', () => {
       1,
     );
     expect(horizontalList.length + freeList.length).toBe(1);
+  });
+
+  it('postprocesses detector heatmaps with edge-case inputs', () => {
+    const options = { ...DEFAULT_OCR_OPTIONS, minSize: 0 };
+
+    const allZero = detectorPostprocess(
+      { data: new Float32Array(16).fill(0), width: 4, height: 4 },
+      { data: new Float32Array(16).fill(0), width: 4, height: 4 },
+      options,
+      1,
+      1,
+    );
+    expect(allZero.horizontalList).toHaveLength(0);
+    expect(allZero.freeList).toHaveLength(0);
+
+    const allOnes = detectorPostprocess(
+      { data: new Float32Array(16).fill(1), width: 4, height: 4 },
+      { data: new Float32Array(16).fill(1), width: 4, height: 4 },
+      options,
+      1,
+      1,
+    );
+    expect(allOnes.horizontalList.length + allOnes.freeList.length).toBe(1);
+
+    const tinySizes: Array<[number, number]> = [
+      [1, 1],
+      [2, 2],
+    ];
+    for (const [width, height] of tinySizes) {
+      const size = width * height;
+      const result = detectorPostprocess(
+        { data: new Float32Array(size).fill(1), width, height },
+        { data: new Float32Array(size).fill(0), width, height },
+        options,
+        1,
+        1,
+      );
+      expect(result.horizontalList.length + result.freeList.length).toBeLessThanOrEqual(1);
+    }
   });
 
   it('warps a perspective crop to a rectangular image', () => {
@@ -85,5 +137,62 @@ describe('core pipeline stages', () => {
     // In our logits, 0 is the max after ignoring 2.
     // So it should be 'a' + '' + '' -> 'a'
     expect(decoded.text).toBe('a');
+  });
+
+  it('decodes CTC logits with all blanks', () => {
+    const charset = 'ab';
+    const steps = 4;
+    const classes = 3;
+    const logits = new Float32Array([
+      5, 0, 0,
+      5, 0, 0,
+      5, 0, 0,
+      5, 0, 0,
+    ]);
+    const decoded = ctcGreedyDecode(logits, steps, classes, charset, 0);
+    expect(decoded.text).toBe('');
+    expect(decoded.confidence).toBe(0);
+  });
+
+  it('decodes repeated characters with blanks collapsing correctly', () => {
+    const charset = 'ab';
+    const steps = 4;
+    const classes = 3;
+    const logits = new Float32Array([
+      0, 5, 0,
+      0, 5, 0,
+      5, 0, 0,
+      0, 5, 0,
+    ]);
+    const decoded = ctcGreedyDecode(logits, steps, classes, charset, 0);
+    expect(decoded.text).toBe('aa');
+    expect(decoded.confidence).toBeGreaterThan(0);
+  });
+
+  it('decodes with an empty charset', () => {
+    const charset = '';
+    const steps = 2;
+    const classes = 1;
+    const logits = new Float32Array([
+      5,
+      5,
+    ]);
+    const decoded = ctcGreedyDecode(logits, steps, classes, charset, 0);
+    expect(decoded.text).toBe('');
+  });
+
+  it('preprocesses detector inputs with non-RGB channel orders', () => {
+    const bgr = makeImageWithChannels(10, 8, 3, 'bgr');
+    const bgra = makeImageWithChannels(10, 8, 4, 'bgra');
+    const gray = makeImageWithChannels(10, 8, 1, 'gray');
+
+    const bgrPrep = detectorPreprocess(bgr, DEFAULT_OCR_OPTIONS);
+    expect(bgrPrep.input.shape[1]).toBe(3);
+
+    const bgraPrep = detectorPreprocess(bgra, DEFAULT_OCR_OPTIONS);
+    expect(bgraPrep.input.shape[1]).toBe(3);
+
+    const grayPrep = detectorPreprocess(gray, DEFAULT_OCR_OPTIONS);
+    expect(grayPrep.input.shape[1]).toBe(3);
   });
 });

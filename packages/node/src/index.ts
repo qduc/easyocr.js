@@ -1,7 +1,7 @@
 export * from '@qduc/easyocr-core';
 export * from './trace.js';
 
-import { guessModel, recognize } from '@qduc/easyocr-core';
+import { getSupportedLanguages, guessModel, recognize } from '@qduc/easyocr-core';
 import type {
   DetectorModel,
   InferenceRunner,
@@ -22,7 +22,12 @@ const MODELS_BASE_URL = 'https://github.com/qduc/easyocr.js/releases/download/v0
 async function ensureModel(modelPath: string): Promise<void> {
   try {
     await access(modelPath);
-  } catch {
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err?.code === 'EACCES' || err?.code === 'EPERM') {
+      throw new Error(`Cannot access model at ${modelPath}: ${err.message ?? 'permission denied'}`);
+    }
+
     const filename = nodePath.basename(modelPath);
     // Only attempt to download if it looks like an ONNX model we know about
     if (!filename.endsWith('.onnx')) {
@@ -35,7 +40,8 @@ async function ensureModel(modelPath: string): Promise<void> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(
-        `Failed to download model from ${url}: ${response.status} ${response.statusText}. ` +
+        `Failed to download model for ${modelPath} from ${url}: ` +
+        `${response.status} ${response.statusText}. ` +
         `Please ensure the model exists or run the export script manually.`,
       );
     }
@@ -267,17 +273,28 @@ export const loadSession = async (
   model: string | Uint8Array | Buffer,
   options: LoadSessionOptions = {},
 ): Promise<ort.InferenceSession> => {
-  if (typeof model === 'string') {
-    await ensureModel(model);
-    return ort.InferenceSession.create(model, options.sessionOptions);
+  try {
+    if (typeof model === 'string') {
+      await ensureModel(model);
+      return ort.InferenceSession.create(model, options.sessionOptions);
+    }
+    const data = model instanceof Uint8Array ? model : new Uint8Array(model);
+    return ort.InferenceSession.create(data, options.sessionOptions);
+  } catch (error) {
+    const err = error as Error;
+    const source = typeof model === 'string' ? `path ${model}` : 'in-memory model bytes';
+    throw new Error(`Failed to load ONNX model from ${source}: ${err.message}`);
   }
-  const data = model instanceof Uint8Array ? model : new Uint8Array(model);
-  return ort.InferenceSession.create(data, options.sessionOptions);
 };
 
 export const loadCharset = async (path: string): Promise<string> => {
-  const data = await readFile(path, 'utf8');
-  return data.trimEnd();
+  try {
+    const data = await readFile(path, 'utf8');
+    return data.trimEnd();
+  } catch (error) {
+    const err = error as Error;
+    throw new Error(`Failed to load charset at ${path}: ${err.message}`);
+  }
 };
 
 export interface DetectorModelOptions extends LoadSessionOptions {
@@ -413,6 +430,17 @@ const normalizeLangs = (lang?: string, langs?: string[]): string[] => {
   return normalized.length > 0 ? normalized : ['en'];
 };
 
+const validateLangs = (langs: string[]): void => {
+  const supported = new Set(getSupportedLanguages().map((entry) => entry.code));
+  const invalid = langs.filter((lang) => !supported.has(lang));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Unsupported language(s): ${invalid.join(', ')}. ` +
+      'Use getSupportedLanguages() to list valid codes.',
+    );
+  }
+};
+
 const isRasterImage = (input: OCRImageInput): input is RasterImage => {
   if (!input || typeof input !== 'object') return false;
   const candidate = input as RasterImage;
@@ -431,6 +459,7 @@ export const createOCR = async (options: CreateOCROptions): Promise<OCRInstance>
   }
 
   const langs = normalizeLangs(options.lang, options.langs);
+  validateLangs(langs);
   const recognizerName = guessModel(langs);
   const detectorModelPath =
     options.detectorModelPath ??
