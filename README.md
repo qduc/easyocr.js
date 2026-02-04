@@ -1,17 +1,28 @@
 # easyocr.js
 
-A JavaScript port of [EasyOCR](https://github.com/JaidedAI/EasyOCR) for Node.js and the Browser.
+A **complete native JavaScript port** of [EasyOCR](https://github.com/JaidedAI/EasyOCR) for Node.js and the Browser.
 
-`easyocr.js` provides an efficient, modular OCR pipeline that runs entirely in JavaScript environments using ONNX Runtime. It achieves feature parity with the Python reference implementation while offering superior integration with JavaScript/TypeScript ecosystems.
+Unlike wrapper libraries that spawn Python processes, `easyocr.js` implements the entire OCR pipeline natively in TypeScript — from image preprocessing to CRAFT text detection, CRNN recognition, and CTC decoding. It runs entirely in JavaScript environments using ONNX Runtime, with **zero Python dependencies**.
 
-## Features
+## ✨ Why easyocr.js?
 
-- **Multi-runtime Support**: Works in Node.js (via `sharp` and `onnxruntime-node`) and the Browser (via `onnxruntime-web` and Canvas).
-- **TypeScript First**: Full type safety and high-level abstractions for OCR tasks.
-- **Model Compatible**: Uses the same CRAFT detector and recognition models as the original Python EasyOCR.
-- **High Performance**: Leverages hardware acceleration (CPU/GPU) through ONNX Runtime.
-- **Multi-language**: Support for 8+ languages including English, Chinese, Japanese, Korean, and more.
-- **Lightweight Core**: The core logic is decoupled from runtime-specific dependencies.
+| | Other JS EasyOCR Libraries | **easyocr.js** |
+|---|---|---|
+| **Architecture** | Python wrapper (spawns child processes) | **Native JavaScript implementation** |
+| **Python Required** | Yes (Python 3.6+, pip, venv) | **No** |
+| **Browser Support** | Node.js only | **Node.js + Browser** |
+| **Performance** | Process spawn overhead | **Direct ONNX inference** |
+| **Deployment** | Complex (Python + Node) | **Simple npm install** |
+
+## 🚀 Key Strengths
+
+- **🥇 First True JS Port**: The first complete native JavaScript/TypeScript implementation of EasyOCR — not a wrapper, but a full port of the detection and recognition pipeline.
+- **📊 Numerical Parity**: Achieves equivalent accuracy to the Python reference implementation through comprehensive validation and tracing.
+- **🌐 Universal Runtime**: Works seamlessly in **both Node.js and the Browser** using runtime-agnostic core logic with swappable backends.
+- **⚡ Hardware Acceleration**: Leverages ONNX Runtime for CPU/GPU acceleration without platform-specific bindings.
+- **🔧 TypeScript First**: Full type safety, modular architecture, and modern JavaScript patterns throughout.
+- **🎯 Model Compatible**: Uses the same CRAFT detector and recognition models as the original Python EasyOCR (80+ languages supported).
+- **📦 Zero Python Dependencies**: Deploy anywhere JavaScript runs — no Python installation, virtual environments, or pip packages required.
 
 ## Installation
 
@@ -502,9 +513,13 @@ A: `@qduc/easyocr-core` contains the shared types and pipeline logic (runtime-ag
 
 A: Yes, but be aware of performance considerations. OCR is computationally intensive; on CPU, expect 1-5s per image depending on size. GPU acceleration via ONNX Runtime can improve performance significantly.
 
+**Q: Is this a Python wrapper?**
+
+A: **No.** Unlike wrapper libraries that spawn Python processes (requiring Python installation), easyocr.js is a complete native port. Every stage — image preprocessing, CRAFT text detection, box merging, perspective warping, CRNN recognition, and CTC decoding — is implemented in TypeScript and runs via ONNX Runtime.
+
 **Q: How accurate is this compared to the Python version?**
 
-A: The JS port achieves numerical parity with the Python EasyOCR. See [python_reference/validation/README.md](python_reference/validation/README.md) for validation methodology.
+A: The JS port achieves **numerical parity** with Python EasyOCR. We maintain a comprehensive validation harness that compares intermediate pipeline outputs (heatmaps, boxes, logits) against the Python reference to ensure identical behavior. See [python_reference/validation/README.md](python_reference/validation/README.md) for methodology.
 
 **Q: Can I use custom models?**
 
