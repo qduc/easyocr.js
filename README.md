@@ -99,7 +99,7 @@ async function run() {
   const image = await loadImage('path/to/image.png');
 
   // 2. Load the detector model
-  // On first run, this auto-downloads from GitHub Releases (~200MB)
+  // On first run, this auto-downloads from GitHub Releases (~83.1 MB)
   // Subsequent runs use the cached copy from models/onnx/
   const detector = await loadDetectorModel('models/onnx/craft_mlt_25k.onnx');
 
@@ -311,7 +311,7 @@ Models should be placed in the `models/onnx/` directory (relative to your projec
 project/
 ├── models/
 │   ├── onnx/
-│   │   ├── craft_mlt_25k.onnx          (detector, ~200MB)
+│   │   ├── craft_mlt_25k.onnx          (detector, ~83.1 MB)
 │   │   ├── english_g2.onnx             (recognizer)
 │   │   ├── zh_sim_g2.onnx              (recognizer)
 │   │   └── ...
@@ -345,7 +345,7 @@ The [v0.0.1-alpha release](https://github.com/qduc/easyocr.js/releases/tag/v0.0.
 
 The two ONNX files total 98,195,474 bytes (about 98.2 MB or 93.6 MiB); the charset is 98 bytes. With Node.js, the detector and recognizer download automatically when missing, but the matching charset does not. Download it separately into `models/english_g2.charset.txt`, or use the manual links above. Other languages need the same detector plus that language's recognizer and matching charset from `models/`.
 
-To run the existing Node example from the repository root after building the packages, use `node examples/node-ocr.mjs`. It uses the included [example screenshot](examples/Screenshot_20260201_193653.png) by default and checks that the detector, English recognizer, and charset are in the paths listed above.
+To run the existing Node example from the repository root after building the packages, use `node examples/node-ocr.mjs`. It uses the included [example screenshot](examples/Screenshot_20260201_193653.png) by default. All three files above must be present before running: this example checks them before loading and exits if any are missing, so the library loader's auto-download support does not apply to this example's preflight checks.
 
 **3. Manual Export from PyTorch**
 
