@@ -345,6 +345,8 @@ The [v0.0.1-alpha release](https://github.com/qduc/easyocr.js/releases/tag/v0.0.
 
 The two ONNX files total 98,195,474 bytes (about 98.2 MB or 93.6 MiB); the charset is 98 bytes. With Node.js, the detector and recognizer download automatically when missing, but the matching charset does not. Download it separately into `models/english_g2.charset.txt`, or use the manual links above. Other languages need the same detector plus that language's recognizer and matching charset from `models/`.
 
+To run the existing Node example from the repository root after building the packages, use `node examples/node-ocr.mjs`. It uses the included [example screenshot](examples/Screenshot_20260201_193653.png) by default and checks that the detector, English recognizer, and charset are in the paths listed above.
+
 **3. Manual Export from PyTorch**
 
 If you have the original PyTorch weights from [EasyOCR](https://github.com/JaidedAI/EasyOCR):
