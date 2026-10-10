@@ -335,7 +335,15 @@ const detector = await loadDetectorModel('models/onnx/craft_mlt_25k.onnx');
 
 **2. Manual Download from Releases**
 
-Download `.onnx` and `.charset.txt` files from the [GitHub Releases](https://github.com/qduc/easyocr.js/releases) page and place them in the `models/` directory.
+The [v0.0.1-alpha release](https://github.com/qduc/easyocr.js/releases/tag/v0.0.1-alpha) contains ONNX files only; charset files are tracked in [`models/`](https://github.com/qduc/easyocr.js/tree/main/models). For a first English result, download the detector and English recognizer, then place all three files at these paths:
+
+| File | Destination | Download | Size |
+|---|---|---|---:|
+| Detector | `models/onnx/craft_mlt_25k.onnx` | [craft_mlt_25k.onnx](https://github.com/qduc/easyocr.js/releases/download/v0.0.1-alpha/craft_mlt_25k.onnx) | 83.1 MB |
+| English recognizer | `models/onnx/english_g2.onnx` | [english_g2.onnx](https://github.com/qduc/easyocr.js/releases/download/v0.0.1-alpha/english_g2.onnx) | 15.1 MB |
+| English charset | `models/english_g2.charset.txt` | [english_g2.charset.txt](https://raw.githubusercontent.com/qduc/easyocr.js/main/models/english_g2.charset.txt) | 98 bytes |
+
+The two ONNX files total 98,195,474 bytes (about 98.2 MB or 93.6 MiB); the charset is 98 bytes. With Node.js, the detector and recognizer download automatically when missing, but the matching charset does not. Download it separately into `models/english_g2.charset.txt`, or use the manual links above. Other languages need the same detector plus that language's recognizer and matching charset from `models/`.
 
 **3. Manual Export from PyTorch**
 
@@ -527,7 +535,7 @@ A: Currently, only CRAFT (detector) and the provided g2 (recognizer) models are 
 
 **Q: Why is the first run slow?**
 
-A: On the first run, models are downloaded from GitHub Releases (100-300MB total) and optionally quantized. Subsequent runs use cached models.
+A: On first use, the detector and selected recognizer are downloaded from GitHub Releases if missing; the English pair totals about 98.2 MB (93.6 MiB). A matching charset file must also be present in `models/` and is not auto-downloaded. Subsequent runs use cached ONNX models.
 
 **Q: How do I handle multiple languages in one image?**
 
